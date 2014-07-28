@@ -1,0 +1,2670 @@
+#!/usr/bin/perl
+
+# Copyright 2005 Milo Thurston (mith@ceh.ac.uk) and Dawn Field (dfield@ceh.ac.uk)
+
+######################################################
+# A reasonably simple application to search for all  #
+# mono-hexanucleotide repeats in Genbank or          #
+# fasta formatted files, and provide detailed output #
+######################################################
+
+#############################################################################
+# This program is free software; you can redistribute it and/or modify     	#
+# it under the terms of the GNU General Public License as published by     	#
+# the Free Software Foundation; either version 2 of the License, or        	#
+# (at your option) any later version.                                      	#
+#																																					 	#
+# This program is distributed in the hope that it will be useful,          	#
+# but WITHOUT ANY WARRANTY; without even the implied warranty of           	#
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            	#
+# GNU General Public License for more details.                             	#
+#                                                                          	#
+# You should have received a copy of the GNU General Public License        	#
+# along with this program; if not, write to the Free Software              	#
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA #
+#############################################################################
+
+use strict;
+use CGI;
+use Cwd;
+use Bio::Location::Split;
+use Bio::SeqIO;
+use Config::Simple;
+use File::Copy;
+use Getopt::Std;
+use List::Util qw(min max);
+use Term::ReadLine;
+
+my $version = "2.0.9";
+
+#####################
+# usage information #
+#####################
+my $usage="
+Usage:
+
+msatfinder [options] files
+msatfinder -b *.gbk
+msatfinder -b -l examples.list
+
+Options:
+
+-b backup your old data directories (adds date & time suffix)
+-d delete most recent data directories, don't search for microsatellites
+-e <1-3> engine to use - see the manual (default 1)
+-f set flank size, overriding config file (default 300)
+-h list these options
+-i check for interrupted msats (not checked by default)
+-l <list_file> read a list of genomes from a text file
+-s silence most output to screen (overrides config file)
+-x delete all data directories, don't search for microsatellites
+
+By default, msatfinder will take the list of files given on the command
+line as the files to read. Instead you may use the -l option, and tell
+it to read a list of the genomes you would like to be processed.
+
+Use options \"-d\" and \"-x\" with caution.
+
+";
+
+
+################
+# idendify cwd #
+################
+my $cwd = getcwd;
+
+#######################
+# date related things #
+#######################
+my $date = `date`;
+chomp($date);
+my %dtrans = ( "JAN" => "01",
+							 "FEB" => "02",
+							 "MAR" => "03",
+							 "APR" => "04",
+							 "MAY" => "05",
+							 "JUN" => "06",
+							 "JUL" => "07",
+							 "AUG" => "08",
+							 "SEP" => "09",
+							 "OCT" => "10",
+							 "NOV" => "11",
+							 "DEC" => "12" );
+my $datestring = `date +%j%H%M%S`;
+chomp($datestring);
+
+####################################
+# import settings from config file #
+####################################
+my $config = &getconfig($cwd,@ARGV);
+
+############################
+# various global variables #
+############################
+my $override = $config->{'FINDER.override'};
+my $artemis = $config->{'FINDER.artemis'};
+my $mine = $config->{'FINDER.mine'};
+my $fastafile = $config->{'FINDER.fastafile'};
+my $sumswitch = $config->{'FINDER.sumswitch'};
+my $screendump = $config->{'FINDER.screendump'};
+my $run_eprimer = $config->{'DEPENDENCIES.run_eprimer'};
+my $eprimer_args = $config->{'DEPENDENCIES.eprimer_args'};
+my $debug = $config->{'COMMON.debug'};
+my $flank_size = $config->{'COMMON.flank_size'};
+my $remote_link = $config->{'FINDER.remote_link'};
+my $primer3core = $config->{'DEPENDENCIES.primer3core'};
+my $eprimer = $config->{'DEPENDENCIES.eprimer'};
+my $dbname = $config->{'VIEWER.dbname'};
+my $dbtype = $config->{'VIEWER.dbtype'};
+my $dbusername = $config->{'VIEWER.gdbusername'};
+my $dbusername2 = $config->{'VIEWER.sdbusername'};
+my $cgiloc = $config->{'VIEWER.cgiloc'};
+my $msatview = $config->{'VIEWER.msatview'};
+my $run_mview = $config->{'ALIGNER.run_mview'};
+my $printerror = 0; # note if an error must be printed to the error file
+my $runird = 0;
+
+########################################
+# subdirectories created by msatfinder #
+########################################
+my $mine_dir = $config->{'COMMON.mine_dir'};
+my $repeat_dir = $config->{'COMMON.repeat_dir'};
+my $tab_dir = $config->{'COMMON.tab_dir'};
+my $bigtab_dir = $config->{'COMMON.bigtab_dir'};
+my $fasta_dir = $config->{'COMMON.fasta_dir'};
+my $prime_dir = $config->{'COMMON.prime_dir'};
+my $count_dir = $config->{'COMMON.count_dir'};
+my @newdirs = ($mine_dir,$repeat_dir,$tab_dir,$bigtab_dir,$fasta_dir,$prime_dir,$count_dir);
+
+##############################################
+# determine which options have been selected #
+##############################################
+my %opts=();
+getopts('abcdxhilt:e:f:m:s',\%opts);
+# print help message
+if (defined $opts{h})
+{
+	print $usage;
+	exit;
+}
+if (defined $opts{s})
+{
+	$screendump = 0;
+}
+# delete files
+if (defined $opts{d})
+{
+	print "Deleting existing data.\n";
+	foreach my $dir (@newdirs)
+	{
+		$dir =~ s/\///;
+		system("rm -rf $dir") == 0 or warn "Having trouble deleting directory $dir, $!";
+	}
+	print "Exiting.\n";
+	exit;
+}
+# delete ALL files
+if (defined $opts{x})
+{
+	print "Deleting ALL old data.\n";
+	foreach my $dir (@newdirs)
+	{
+		$dir =~ s/\///;
+		system("rm -rf $dir*") == 0 or warn "Having trouble deleting directory $dir, $!";
+	}
+	print "Exiting.\n";
+	exit;
+
+}
+# backup files
+if (defined $opts{b})
+{
+	print "Backing up date files with suffix $datestring\n";
+	foreach my $move (@newdirs)
+	{
+		$move =~ s/\///;
+		system("cp -r $cwd/$move $cwd/$move.$datestring") == 0 or warn "Can't copy $move, $!";
+	}
+
+}
+# check for interrupts
+if (defined $opts{i})
+{
+	$runird = 1;
+}
+# which engine to use
+my $engine;
+if (defined $opts{e})
+{
+	$engine = $opts{e};	
+}
+else
+{
+	$engine = 1;
+}
+if ($engine == 1) { print "Using regexp engine.\n" if ($screendump == 1); }
+elsif ($engine == 2) { print "Using multipass engine.\n" if ($screendump == 1); }
+elsif ($engine == 3) { print "Using iterative engine.\n" if ($screendump == 1); }
+else { die "Somehow, no engine has been defined!\n"; }
+print "Current directory: $cwd\n" if ($screendump == 1);
+
+# what are the flanks?
+if (defined $opts{f})
+{
+	if ($opts{f} eq "")
+	{
+		$flank_size = 300;
+	}
+	else
+	{
+		$flank_size = $opts{f};
+	}
+	print "Overriding flank size in config file - using value: $flank_size\n" if ($screendump == 1);
+}
+
+#####################################
+# set up motif range and thresholds #
+#####################################
+my $threshold = $config->{'FINDER.motif_threshold'};
+$threshold =~ s/^\|//;
+$threshold =~ s/\|$//;
+my @thresholds;
+my @motif_range;
+
+# load motif ranges into array
+my @motif_range_pre = split(/\|/, $threshold);
+
+# remove any duplicates
+my %seen = ();
+my @threshes=();
+foreach my $blah (@motif_range_pre) 
+{ 
+	my ($mot,$thresh) = split(/,/,$blah);
+	$thresholds[$mot-1] = $thresh;
+	push(@threshes,$thresh);
+	$seen{$mot}++; 
+}
+my @uniq = keys %seen;
+@motif_range = sort { $a <=> $b } @uniq;
+print "Using motif types: ", join(",",@motif_range), "\n" if ($screendump == 1);
+die "You must specify motif types to search for.\nExiting!\n" unless (@motif_range);
+
+# check that there are thresholds appropriate to
+# each motif type...
+my $unspec = 0;
+my $typeerror = 0;
+foreach my $type (@motif_range)
+{
+	$unspec++ unless ($thresholds[$type-1] =~ /^\d+$/ and $thresholds[$type-1] > 0);
+	$typeerror++ unless ($type =~ /^\d+$/);
+}
+# dodgy thresholds
+if ($typeerror >= 1)
+{
+	if ($typeerror == 1)
+	{
+		print "Error - you have entered a motif type incorrectly: \n";
+	}
+	else
+	{
+		print "Error - some motif types entered incorrectly:\n";
+	}
+	foreach  my $type (@motif_range)
+	{
+		print "* $type\n" unless ($type =~ /^\d+$/);
+	}
+	print "Please edit the .rc file and try again. Exiting!\n";
+	exit;
+}
+# oops, at least one threshold undefined
+if ($unspec >= 1)
+{
+	if ($unspec == 1)
+	{
+		print "Error - a threshold is not defined correctly:\n";
+	}
+	else
+	{
+		print "Error - some thresholds are not specified. You have supplied the following:\n";
+	}
+	print "motif\tthreshold\n";
+	foreach  my $type (@motif_range)
+	{
+		my $defstring;
+		if (@thresholds[$type-1] > 0)
+		{
+				$defstring = @thresholds[$type-1];
+		}
+		else
+		{
+			$defstring = "MISSING";
+		}
+		print "$type:\t$defstring\n";
+	}
+	print "Please edit the .rc file and try again. Exiting!\n";
+	exit;
+}
+
+###############################################################
+# open a file containing a list of the genomes to be searched #
+###############################################################
+my @infiles = ();
+my @nreg = ();
+my $list_file;
+if ($opts{l})
+{
+	if (@ARGV)
+	{
+		chomp($list_file = shift); 
+	}
+	unless (defined $list_file) 
+	{
+		print "You need to specify the name of a list file to process.\n";	
+		my @possibles = glob "*\.list";
+		if (@possibles)
+		{
+			print "Please select one of the following files:\n";
+			foreach (@possibles)
+			{
+				print " - $_\n";
+			}
+			print "Type one of the above filenames (use the up arrow to select),\n or type in another.\n";
+
+			# get the user input
+			my $term = new Term::ReadLine 'choose file';
+			my $prompt = "Select an file: ";
+			foreach (@possibles) { $term->addhistory($_); }
+			$term->ornaments('0');
+			$list_file = $term->readline($prompt);
+		}
+		else
+		{
+			print "I couln't find any list files in $cwd. Please choose a filename, or select X to exit.\n";
+		
+			# get the user input
+			my $term = new Term::ReadLine 'choose file';
+			my $prompt = "Select an file: ";
+			$term->ornaments('0');
+			$list_file = $term->readline($prompt);
+			exit if ($list_file =~ /^[Xx]/);
+		}
+	}
+
+
+	# actually open the file at last...
+	open (LISTFILE, "$list_file") or die "Can't open the file \"$list_file\": $!\nPlease check you have a valid list file, and try again.";
+	while (my $infile = <LISTFILE>)
+	{
+		chomp $infile;
+		push (@infiles, $infile);
+	}
+	close LISTFILE;
+}
+else
+{
+	@infiles = @ARGV;
+}
+
+
+# exit if no infiles
+unless (@infiles)
+{
+	print "You don't seem to have specified any files to process...\n";
+	print $usage;
+	exit;
+}
+
+
+# apply the override
+if ($override == 1)
+{
+	$artemis = 0;
+	$mine = 0;
+	$fastafile = 0;
+	$sumswitch = 0;
+	$screendump = 0;
+	$run_eprimer = 0;
+}
+
+# check the deps
+my @deps = qw(primer3_core eprimer3);
+my %find = ();
+$find{primer3_core} = $primer3core;
+$find{eprimer3} = $eprimer;
+if ($run_eprimer == 1)
+{
+	&depcheck(\%find,$screendump,@deps);
+}	
+
+# die if you have more things to look for than thresholds
+if (scalar @motif_range > scalar @thresholds)
+{
+	die "You seem to have more types of msat to look for than you have thresholds! Please edit the config file and try again.\nExiting!\n";
+}
+
+# precalculate some stuff for findmotifs_regex
+my $minrep = &min(@threshes);
+my $maxmotiflen = scalar(@thresholds);
+
+
+#Consistency check - see findmotifs_regex
+if( $minrep < 3 and $engine == 1) { print "Can't cope with finding less than three repeats of patterns! (\$minrep is $minrep) whilst using the regex engine.\n"; exit; };
+if( $thresholds[0] =~ /\d+/ and $thresholds[0] < scalar(@thresholds) and $engine == 1) { print "Threshold for monos too small - cannot resolve ambiguities.\n"; exit; };
+
+# this makes sure that your directories exist
+# before trying to write anything to them
+my $dir;
+foreach $dir (@newdirs)
+{	
+	$dir =~ s/\///;
+	if (-e "$cwd/$dir") { unlink glob "$dir/*"; }
+	unless (-e "$cwd/$dir") { mkdir "$cwd/$dir" or warn "Can't create $dir"; }
+}
+
+#################################################################
+# an explication of main variables used throughout this script, #
+# except for all the ones I haven't bothered to list here.      #
+#################################################################
+my $aat;				# %A divided by %AT
+my $abs_path; 			# path to $repeat_dir (same as $cwd . $repeat_dir)
+my $allfile;			# one of the NC_xxx.xxx numbers in @all_files
+my $all_files2;			# prepares a list of files w/ and w/o repeats
+my $alphabet;			# DNA, RNA or protein?
+my $analysis_type;		# how the .db files were prepared
+my $ATgenome;			# AT% in the entire genome
+my $blaster;			# the entire repeat plus flanking sequence
+my $cdsnum;				# number of CDS regions found per genome
+my $cgc;				# %C divided by %CG
+my $CGgen_flankseq;		# GC content of flank
+my $CGgen_repeat;		# GC content of repeat
+my $CGgenome;			# % CG in the complete genome
+my $CGmatch;			# see the previous CG variable
+my $checklength;		#
+my $checkright;			#   Determine actual size of 
+my $checkright_len;		#   flanks, and the position
+my $checkright_len_pc;	#   of the repeat in the 
+my $checkleft;			#   genome (dist from L & R).
+my $checkleft_len;		#
+my $checkleft_len_pc;	#
+my $circular;			# linear or circular DNA/RNA?
+my $count;				# counts the number of genomes
+my $coding;				# is this repeat coding or non-coding?
+my $def;				# Genbank DEFINITION line
+my $dodgy;				# file without valid content
+my $end;				# used for determining repeat length
+my $entry;				# CGI object used for MINE.db writing
+my $feature;			# header for the .msat_tab file
+my $feature_plus_flank; # header for the .flank_tab file
+my $file;				# the NC_xxx.xxx number currently being examined
+my $filein;             # the Bio::SeqIO object
+my $flankseq;			# flanking sequence only
+my $fname;				# what the fasta file is called
+my $fout;				# the famous lovely fasta header
+my $genome_len;			# total length of the genome
+my $gentaxon;			# a more general taxonomic category
+my $howmany;			# number of list files in $cwd
+my $isaaa = 0;		# is a amino acid...
+my $isformat;			# what format is the file?
+my $join;				# manipulation of Genbank CDS lines
+my $left;				# sequence upstream of the repeat
+my $linkfile;			# symlink to NC file, found in $cwd/<Msat/Flank>_tab
+my $loc;				# genbank locus
+my $match_count;		# number of matches found
+my $match_len;			# length of the match
+my $matrix_file;		# file with num. reps. vs. size
+my $mineend;			# "end" of filename on MINE.db and fasta repeat files
+my $minenum;			# number of repeats found per genome
+my $motif_type;			# mono, di, tri etc.
+my $motif_revcom;		# motif reverse compliment
+my $numall;				# total number of msats found
+my $numint;				# total number of interrupted msats found
+my $numfiles;			# number of files surveyed
+my $numreps;			# number of repeats ($mineum minus the zeros)
+my $percentcode;		# percentage coding for each genome
+my $prefix;				# the taxonomic group (phages, viruses etc.)
+my $realfile;			# file that $linkfile links to
+my $replength;			# stores the longest repeat length
+my $repsum;				# sum of repeat length in this genome
+my $repsumpc;			# percentage of this genome consisting of repeats
+my $reverse;			# set to 1 if the gene is a "compliment"
+my $right;				# sequence downstream of the repeat
+my $sequence_string;	# does what it says on the tin
+my $strand;				# ss or ds?
+my $organism;			# genbank ORGANISM
+my $tabfile;			# name of the feature table associated with $file
+my $tempcoding;			# sum of total number of coding bases
+my $totalreps = 0;		# number of genomes containing repeats
+my $totalreppc;			# percentage of genomes containing repeats
+my $primercount = 0;	# count total number of genomes with primers
+
+# these variables are responsible for c/gc content &c.
+my $base_a;
+my $base_t;
+my $base_g;
+my $base_c;
+
+
+# arrays and hashes
+my @all_files=();		# stores all the $file seen
+my @all_files2=();		# stores a little more than @all_files (for output 8)
+my @genome_len=();		# list of genome lengths
+my @line=();			# lines of the genbank file
+my %mineseen=();		# stores the highest $minenum for each $file
+my %ncseen=();			# print each $file once to the brief summary
+my @dodgy=();			# files that contain invalid content
+my $total_ids;			# how many unique seqs examined?
+
+my %repeat_counter=(); 	 # store up the total type and number of repeats;
+my @short_names=();		 	 # all short names (first key to repeat_counter)
+my @all_motifs=();		 	 # all motif types ever found (second key to repeat_counter)
+my %motifs_by_genome=(); # all motif types found in one particular genome
+my %max_replength=();		 # longest number of repeat units for any repeat in a genome
+my %has_msat=();				 # remember the genomes with msats in
+my %unique_motifs=();		 # unique motifs from all genomes
+
+my %repseen=();			# sums up the total length of repeats 
+						# in the whole genome
+my %genlenhash=();		# matches genome length to $file
+my %defseen=();			# matches $def to @all_files2
+my %primercheck=();		# can primers be made for this particular sequence?
+my %pccodreps=();		# percentage of repeats in coding region
+
+my $genename;		# remember the start of each repeat, to determine
+my $protname;		# which gene it is in, later.
+my $prodname;
+my %duplicates;		# deals with any duplicated sequence names
+
+# hashes used for determining which
+# entries are saved into a CSV text file
+# later in the script
+%ncseen=();
+%mineseen=();
+
+###################################
+# .db files prepared by msatfinder #
+###################################
+$analysis_type="msatfinder, run on $date, thresholds >" . join(",",@thresholds);
+
+# determine $prefix (taxonomic_group) from 
+# the name of the working directory
+($prefix = $cwd) =~ s#.*/##;
+$prefix =~ /(\w+)\.*/;
+$prefix = lc $1;
+$cwd .= "/";
+
+# set up the taxon information for use in
+# the final database file
+$gentaxon = $config->{"FINDER.$prefix"};
+unless (defined $gentaxon)
+{
+	$gentaxon = $prefix;
+}
+
+# more will be added here to allow more generic 
+# categorisation of the organelles, bacteria &c.
+# N.B. "specific" and "generic" taxa are notes
+# for the convenience of the user only (e.g. they
+# remind me what directories I put things in.
+
+#########################################
+# Where should the output files go?     #
+#########################################
+# The summarised repeats now go in a 
+# subdirectory of the working directory.
+# I have called this "./Repeats"
+
+$abs_path = $cwd . $repeat_dir; # path to $repeat_dir
+
+##########################################
+# Open the core output files for writing #
+##########################################
+
+# a list of files that seem corrupted (some genbank links are broken resulting in 'empty' files
+# during automated download from NCBI
+open (OUTPUT_FILE1, ">$abs_path$prefix.errors") or die "Can't open $abs_path$prefix.errors file: $!";
+
+# an index file giving the search parameters and details
+open (OUTPUT_FILE2, ">$abs_path$prefix.index") or die "Can't open $abs_path$prefix.index file: $!";
+
+# summary data of coding regions, etc. for each rep file
+open (OUTPUT_FILE3, ">$abs_path$prefix.repeats") or die "Can't open $abs_path$prefix.summary file: $!";
+
+# a list of all files, whether or not repeats are present
+open (OUTPUT_FILE5, ">$abs_path$prefix.genomes") or die "Can't open $abs_path$prefix.total_sum: $!";
+
+
+#########################################
+# initialize some variables             #
+#########################################
+$| = 1;         # flush the buffer...
+$count = 0;     # number of genomes...
+
+
+#########################
+#########################
+# Start searching files #
+#########################
+#########################
+
+# Read through the list of file names to get all files to search
+my $headerprint = 0;
+foreach my $file (@infiles)
+{ 
+	# take in the list of files
+	push (@all_files, $file);  
+	$numfiles = @all_files;
+
+	# announce the cuurent file being searched
+	print "-----\n" if ($screendump == 1);
+	print "Searching file: $file\n" if ($screendump == 1);
+
+    # MINE file rep number setting
+	$minenum = "0";
+
+	++$count;  
+	$sequence_string = undef;
+
+	##############################
+	# check if it's a fasta file #
+	# if not, get LOCUS          #
+	##############################
+
+	$alphabet = "undefined";
+	$strand = "undefined";
+	$organism = "undefined";
+	$def = "undefined";
+	my $oldstop = 0;
+	my ($oldline,$olderline) = ("ftang","ftang");
+	$isformat = 5;
+
+  open (IN, "<$file") or die "Can't open the genome file $file: $!";
+	my $sprotorembl = 0;
+	while (my $line =<IN>)
+	{
+		chomp($line);
+		# fasta format
+		if ($line =~ "^>") 
+		{
+			print "It looks like this is a FASTA file: $file\n" if ($screendump == 1); 
+			$isformat = 1;
+			last;
+		}
+		# Swissprot format
+		elsif ($line =~ /^ID/)
+		{
+			# could be EMBL or Swissprot
+		 	$sprotorembl = 1;
+			last;
+		}
+		# genbank format - the original, needs a lot of
+		# processing to extract info. that bioperl can't get
+   	elsif ( $line =~ /^LOCUS/) 
+		{
+			print "It looks like this is a Genbank file: $file\n" if ($screendump == 1); 
+			$isformat = 0;
+			# get alphabet, and strandedness
+			# I've assumed that DNA is ds unless
+			# specifically stated otherwise.
+			# NCBI claim that this is the case.
+			my @locs = split(/\s/, $line);
+			foreach my $loc (@locs)
+			{
+				if ($loc =~ /NA/)
+				{
+					if ($loc =~ /(\D\D)-(\D+)/)
+					{
+						$strand = lc $1;
+						$alphabet = lc $2;
+					}
+					else
+					{
+						$strand = "ds"; 
+						$alphabet = lc $loc;
+					}
+				}
+			}
+		}
+		elsif ($isformat == 5) # assume must be ASCII format
+		{
+			print "I don't recognise the format of this this file: $file\nI'll assume that it's ASCII." if ($screendump == 1); 		
+			$isformat = 4;
+			last;
+		}
+		# definition
+    elsif ($line =~ /^\s*DEFINITION\s*/) 
+		{
+			$def = $line;
+	   	$def =~ s/DEFINITION\s+//;
+		}
+		# species name
+		elsif ($line =~ /^\s*ORGANISM\s*/) 
+		{ 
+	    $organism = "$line";
+	    $organism =~ s/\s*ORGANISM\s*\b//;
+		}
+		# exit the loop after reading the important stuff
+		elsif ($line =~ "FEATURES") { last; }
+
+		# match the old line, in case a definition
+		# extends over two lines (e.g. ORGANISM)   
+		if ($oldline =~ /^DEFINITION/ and $line =~ /^\s+/)
+		{
+	    $line =~ s/\s+//;
+	    $def = "$def " . $line;
+			print "Case 1: gbline is $line, oldline is $oldline, def is $def\n" if ($debug == 1);
+		}
+		if ($oldline =~ /^\s*ORGANISM/ and $line =~ /^\s+/)
+		{
+	    $line =~ s/\s+//;
+	    $organism = "$organism " . $line;
+			print "Case 2: gbline is $line, oldline is $oldline, organism is $organism\n" if ($debug == 1);
+		}
+		if ($olderline =~ /^\s*ORGANISM/ and $line =~ /^\s+/)
+		{
+	    $line =~ s/\s+//;
+	    $organism = "$organism " . $line;
+			print "Case 3: gbline is $line, olderline is $olderline, organism is $organism\n" if ($debug == 1);
+		}
+
+		# saves the previous line
+		$olderline = $oldline;
+		$oldline = $line;
+	}
+	close IN;
+
+	# swissprot or EMBL format?
+	if ($sprotorembl == 1)
+	{
+		# see if file is swissprot
+		# if not, it must be EMBL
+		my $testfile = Bio::SeqIO->new(-file => "$file",
+																	 -format => 'EMBL');
+		my $testseq;
+		while (1)
+		{
+			my $testseq;
+			eval 
+			{
+				$testfile->verbose(2);
+				undef $@;
+				$testseq = $filein->next_seq()
+			}; #Done eval
+			if($@) 
+			{	 
+				print "It looks like this is an EMBL file.\n" if ($screendump == 1);
+				$isformat = 3;	
+				last;
+			}
+			else
+			{
+				print "It looks like this is a Swissprot file.\n" if ($screendump == 1);
+				$isformat = 2;	
+				last;
+			}
+		}
+		$testfile->close();
+	}
+
+	# new object, depeding on format
+	if ($isformat == 1) # FASTA
+	{
+		$filein = Bio::SeqIO->new(-file => "$file",
+								  -format => 'Fasta');
+	}
+	elsif ($isformat == 2) # Swissprot
+	{
+		$filein = Bio::SeqIO->new(-file => "$file",
+								  -format => 'swiss');
+	}
+	elsif ($isformat == 3) # EMBL
+	{
+		$filein = Bio::SeqIO->new(-file => "$file",
+								  -format => 'EMBL');
+	}
+	elsif ($isformat == 0) # genbank
+	{
+		$filein = Bio::SeqIO->new(-file => "$file",
+								  -format => 'genbank');
+	}
+	elsif ($isformat == 4) # ASCII
+	{
+			$filein = Bio::SeqIO->new(-file => "$file",
+								  -format => 'raw');
+	}
+	else { die "Unknown file type - please report this error.\n"; }
+
+	###########################################
+	# loop through every sequence in the file #
+	###########################################
+	@nreg=();
+	my $noofseqs = 1;
+	print "Reading sequences from file $file...\n" if ($screendump == 1);
+	SEQ: while (my $seq = $filein->next_seq()) # this point is very slow...
+	{
+		last unless $seq;
+		# how much of this sequence is coding
+		$tempcoding = 0;
+		$cdsnum = 0;
+
+		# first, check if amino acid not dna
+		if ($seq->alphabet() =~ /protein/)
+		{
+			$isaaa = 1;
+ 			print "This looks like an amino acid sequence.\n" if ($screendump == 1);
+		}
+		else
+		{
+ 			print "This looks like a nucleic acid sequence.\n" if ($screendump == 1);
+		}
+		# print headers
+		&fileheaders($isformat,$isaaa) if ($headerprint == 0);
+		$headerprint = 1;
+
+		# get the ID of this sequence
+		# and the sequence string
+		$sequence_string = lc($seq->seq());
+		$genome_len = length $sequence_string;
+		my $id = $seq->display_id();
+		$id =~ s/;//;
+		$id =~ s/\.gbk//;
+		
+		# checks for duplicated sequence names
+		if ($duplicates{$id} == 1)
+		{
+			$duplicates{$id}++;
+			next;
+		}
+		else
+		{
+			$duplicates{$id} = 1;
+		}
+		
+		# create a short name to refer to
+		# this particular sequence        
+		my ($short_name,@ids);
+		if ($isformat == 4)
+		{
+			$short_name = $datestring . "_" . $noofseqs; 
+		}
+		else
+		{
+			@ids = split(/\|/, $id);
+			if ($id =~ /^gi/) 
+			{
+				if (defined $ids[4]) { $short_name = $ids[4]; }
+				else  { $short_name = $ids[1]; }
+			}
+			elsif ($id =~ /^gb/) { $short_name = $ids[2]; }
+			elsif ($id =~ /^ref/) { $short_name = $ids[1]; }
+			else { $short_name = $id; }
+		}
+		# N.B. if the FASTA filename has certain characters in then
+		# it will cause msatfinder to crash. Get rid of them here.
+		$short_name =~ s/\./_/g;
+		$short_name =~ s/\|/_/g;
+		$short_name =~ s/:/_/g;
+		$short_name =~ s/,/_/g;
+		if ($short_name eq "")
+		{
+			print "Invalid name in FASTA header. Please replace with something like \"seq1\", \"seq2\" etc.\nExiting!\n";
+			die;
+		}
+		$noofseqs++;
+
+		# check for a valid sequence
+		if (! $seq->validate_seq($sequence_string))
+		{
+			print "Sequence $short_name is invalid!\n";
+			print OUTPUT_FILE1 "INVALID_SEQ|$short_name\n";
+			$printerror = 1;
+			next SEQ;
+		}
+		# count msats in CDS regions for this genome
+		$pccodreps{$short_name} = 0;
+		push(@short_names,$short_name);		
+		$reverse = 0;
+
+		# stuff needed to get the species details
+		my $sp;
+		my $ps;
+		my ($species, $genus, @classification, $common_name, $sub_species, $binomial, $division, $gdate, @gdates, $specific_host, $lab_host, $db_xref, $note, $feature_count) = "";
+		my $ann;
+		my (@annotations1,@annotations2);
+
+		##################################################
+		# if a genbank file, extract further information #
+		##################################################
+		if ($isformat == 0 or $isformat == 2 or $isformat == 3)
+		{
+
+			# species object
+			$sp = $seq->species();
+			# information on the organism
+			$alphabet = $seq->alphabet() unless (defined $alphabet);
+			eval { $genus = $sp->genus(); } or  $genus = "NA"; 
+			eval { $species = $sp->species(); } or $species = "NA";
+			eval { @classification = $sp->classification(); } or @classification = qw(na);
+			eval { $common_name = $sp->common_name(); } or $common_name = "NA";
+			eval { $sub_species = $sp->sub_species(); } or $sub_species = "NA";
+			eval { $binomial = $sp->binomial(); } or $binomial = "NA";
+			eval { $division = $seq->division(); } or $division = "NA";
+			@gdates = $seq->get_dates();
+			my $gdate1 = $gdates[0];
+			my ($d1,$d2,$d3) = split("-",$gdate1);
+			$gdate = $d3 . "-" . $dtrans{$d2} . "-" . $d1;
+			$circular = 'linear';
+			$circular = 'circular' if $seq->is_circular();
+			$feature_count = $seq->feature_count();
+
+
+			# features
+			my $whirley = Whirley->new(4);
+			print "Reading all annotations in sequence...\n" if ($screendump == 1);
+			foreach my $feat ($seq->all_SeqFeatures()) # this part is very slow...
+			{
+				print STDERR "Please wait: ", $whirley->(), "\r" if ($screendump == 1);
+				my $tag; 
+				eval { $tag = $feat->primary_tag(); } or $tag = "wibble";
+				# source: get hosts, notes &c. for this genome
+				if ($tag =~ "source")
+				{
+					my @tags = $feat->all_tags();
+					foreach my $val (@tags)
+					{
+						my @tagvalues = $feat->each_tag_value($val);
+						if ($val =~ /specific_host/) { $specific_host = $tagvalues[0]; }
+						if ($val =~ /lab_host/) { $lab_host = $tagvalues[0]; }
+						if ($val =~ /note/) { $note = $tagvalues[0]; }
+						if ($val =~ /db_xref/) 
+						{ 
+							$db_xref = $tagvalues[0]; 
+							$db_xref =~ s/taxon://;
+						}
+					}
+				}
+				# get start, stop and other stuff here. 
+				if ($tag =~ "CDS")
+				{
+					$cdsnum++;
+					my $location = new Bio::Location::Split;
+					$location = $feat->location();
+					if ($location->isa('Bio::Location::Split'))
+					{
+						my @sublocs = $location->sub_Location();
+						foreach my $loc (@sublocs)
+						{
+							my $featstart = $loc->start();
+							my $featend = $loc->end();
+							&addregion($featstart,$featend);
+						}
+					}
+					else
+					{
+						my $featstart = $feat->start();
+						my $featend = $feat->end();
+						&addregion($featstart,$featend);
+					}
+				}
+			}
+		}	
+
+		########################################
+		# calculate other things based on data #
+		# from these info.-rich formats        #
+		# but not swissprot - is amino acid    #
+		########################################
+		unless ($isaaa == 1)
+		{
+			# how much coding DNA is present?
+			$tempcoding = &howlong || "0";
+
+			if ($tempcoding > $genome_len)
+			{
+				print "Something's wrong here!\n";
+				print "Tempcoding: $tempcoding\n";
+				print "Length: $genome_len\n";
+				print OUTPUT_FILE1 "CODING_MISMATCH|$short_name|$tempcoding|$genome_len\n";
+				$printerror = 1;
+			}
+
+			# determine the base count
+	  	$base_a = $sequence_string =~ tr/aA/aA/;
+   		$base_c = $sequence_string =~ tr/cC/cC/;
+   		$base_g = $sequence_string =~ tr/gG/gG/;
+   		$base_t = $sequence_string =~ tr/tT/tT/;
+
+			# check it!
+   		my $totlen = $genome_len - ($base_a + $base_t + $base_c + $base_g);
+   		if( $totlen < 0 ) 
+			{
+				warn "Base count larger than seq length in $short_name!\n";
+ 			}
+		}
+
+		# increment the unique id count
+		$total_ids++;
+
+		# more debugging code
+		if ($debug == 1)
+		{
+			print "IDS: @ids\n";
+			print "ID: $short_name\n";
+			print "FC: $feature_count\n";
+		}
+
+		# annouce the sequence being searched
+		print "Inspecting sequence: $short_name...\n" if ($screendump == 1);
+
+		# after conversion genome is in $sequence_string; get length and G+C
+		$genlenhash{$short_name} = $genome_len;
+		push (@genome_len, $genome_len);
+		unless ($isaaa == 1)
+		{
+			$CGgenome = $sequence_string =~ tr/cgCG/cgCG/;
+			$ATgenome = $sequence_string =~ tr/atAT/atAT/;
+	
+			# determine if the genome is unusually
+			# a or c rich
+			if ($ATgenome == 0)
+			{
+				print "ATgenome is $ATgenome in $short_name\n";
+				print "File $short_name has invalid content!\n";
+				push (@dodgy, $short_name);
+				print OUTPUT_FILE1 "LOW_AT_CONTENT|$short_name\n";
+				$printerror = 1;
+				next;
+			}
+			$aat = $base_a/$ATgenome;
+			$aat = sprintf("%.3f", $aat);
+			if ($CGgenome == 0 )
+			{
+				print "CGgenome is $CGgenome in $short_name\n";
+				print "File $short_name has invalid content!\n";
+				push (@dodgy, $short_name);
+				next;
+			}
+			$cgc = $base_c/$CGgenome;
+			$cgc = sprintf("%.3f", $cgc);
+		}
+    # stop division by zero
+		if ($genome_len >0) 
+		{
+			unless ($isaaa == 1)
+			{
+				$CGgenome = ($CGgenome/$genome_len)*100;
+				$CGgenome = sprintf("%.3f", $CGgenome);
+			}
+			# send an error message if the sequence is very short - probably not a genome?
+			if (length $sequence_string <=50) {print OUTPUT_FILE1 "DODGY_SEQ|$short_name|$genome_len|$sequence_string\n";}
+			$printerror = 1;
+
+ 			# make sure that the $percentcode is correct
+			# moved up from lower in the script
+			unless ($isaaa == 1)
+			{
+				$percentcode = 100*($tempcoding/$genome_len);
+				$percentcode = sprintf("%.3f", $percentcode);
+			}
+			# hashes used when writing summary files
+			# at the end of the script
+			$mineseen{$short_name}=$minenum;
+			$repseen{$short_name}=0;
+			$defseen{$short_name} = $def;
+			# Here we create yet another array to store all files names
+			# "total_sum"
+			if (($isformat == 0  or $isformat == 2 or $isformat == 3) and $isaaa == 0)
+			{
+				my $all_files2 = join "|", $short_name, $prefix, $gentaxon, $division, $strand, $alphabet, $circular, $gdate, $binomial, $genus, $species, $sub_species, $specific_host, $lab_host, $db_xref, $note, $common_name, $organism, $def, $genome_len, $tempcoding, $percentcode, $CGgenome, $cdsnum, $base_a, $base_t, $base_g, $base_c, $aat, $cgc;
+				push (@all_files2, $all_files2);
+			}
+			if (($isformat == 0  or $isformat == 2 or $isformat == 3) and $isaaa == 1)
+			{
+				my $all_files2 = join "|", $short_name, $prefix, $gentaxon, $division, $alphabet, $circular, $gdate, $binomial, $genus, $species, $sub_species, $specific_host, $lab_host, $db_xref, $note, $common_name, $genome_len;
+				push (@all_files2, $all_files2);
+			}
+			if ($isformat == 1 and $isaaa == 0)
+			{
+				my $all_files2 = join "|", $short_name, $genome_len, $CGgenome, $base_a, $base_t, $base_g, $base_c, $aat, $cgc;
+				push (@all_files2, $all_files2);
+			}
+			if ($isformat == 1 and $isaaa == 1)
+			{
+				my $all_files2 = join "|", $short_name, $genome_len;
+				push (@all_files2, $all_files2);
+			}
+			##################################################################
+			# This is the important part where the repeats are found using a #
+			# the regexp below. Loop through this section by repeat length   #
+			##################################################################
+			$repsum = 0;
+			my $res; # array ref with all msats within it
+			my $whirley = Whirley->new($engine);
+			if ($engine == 1) { $res = &findmotifs_regex($sequence_string,$whirley,$screendump,$short_name); }
+			elsif ($engine == 2) { $res = &findmotifs_multipass($sequence_string,$whirley,$screendump,$short_name); }
+			elsif ($engine == 3) { $res = &findmotifs_iterate($sequence_string,$whirley,$screendump,$short_name); }
+			# now process the msats in the res array
+			# MATCH (a place marker for gvim)
+			$replength = 0;
+			my @motifs_in_this_genome = ();
+			my %unique_motifs_local=();
+			next unless (@$res);
+			my $allmsats;
+			# determine if any msats are interruped
+			if ($runird == 1)
+			{
+			 print "Scanning for interrupted msats...\n";
+			 # do a whirley here...
+				$allmsats = &ird(@$res);				
+			}
+			else
+			{
+				$allmsats = $res;
+			}
+			#if ($debug == 2) { foreach my $msat (@allmsats) { print "$msat\n"; } }
+			foreach my $msat (@{$allmsats})
+			{
+				# make alterations based on interrupted msats!
+				$has_msat{$short_name} = 1;
+				my @parts = split(/\./, $msat);
+				my $match = $parts[2];
+				my $motif_type;
+				if ($match =~ /-/) { $motif_type = length([split(/-/,$match)]->[0]); }
+				else { $motif_type = length($match); }
+				my $match_len = $motif_type * $parts[3];
+				my $match_count = $match_len/$motif_type;
+				my $start = $parts[1];
+   			my $end = $start + $match_len - 1;
+				my $whole_match = substr ($sequence_string, $start-1, $match_len);
+				$repseen{$short_name} += $match_len;	
+
+				# ignore poly-N and poly-X of any type
+				next if ($match =~ /n/ or $match =~ /x/);
+
+				# count total number found
+				$numall++;
+				$numint++ if ($match =~ /-/);
+
+   			# determine the motif type, and
+   			# count the number of msats of
+   			# each type and length
+				$repeat_counter{$short_name}{$match}[$match_count]++;
+				$repeat_counter{all}{$match}[$match_count]++;
+				push(@all_motifs,$match) unless ($unique_motifs{$match});
+				push (@motifs_in_this_genome,$match) unless ($unique_motifs_local{$match});
+				$unique_motifs{$match} = 1;
+				$unique_motifs_local{$match} = 1;
+
+				# reverse complement
+   			$motif_revcom = $match;
+   			$motif_revcom =~ tr/ACTGactg/TGACtgac/;
+
+				# set the various coding region descriptions
+				# to N/A (assuming non-coding unless we find
+				# otherwise
+				$genename = "N/A";
+				$protname = "N/A";
+				$prodname = "N/A";
+				$coding = 0;
+
+				# determine whether or not the start or end of this repeat
+				# falls within a CDS region
+				my $check1 = &isitin($start);
+				my $check2 = &isitin($end);
+				if ($check1 == 1 or $check2 == 1)
+				{
+					$coding = 1;
+					$pccodreps{$short_name}++; 
+
+					# determine which gene it is in 
+					# and all that                  
+					foreach my $feat ($seq->all_SeqFeatures())
+					{
+						# this information is not connected to
+						# the CDS wherein the repeat is found...
+						my $tag; 
+						eval { $tag = $feat->primary_tag(); } or $tag = "wibble";
+						if ($tag =~ "source")
+						{
+							my @tags = $feat->all_tags();
+							foreach my $val (@tags)
+							{
+								my @tagvalues = $feat->each_tag_value($val);
+								if ($val =~ /specific_host/) { $specific_host = $tagvalues[0]; }
+								if ($val =~ /lab_host/) { $lab_host = $tagvalues[0]; }
+								if ($val =~ /note/) { $note = $tagvalues[0]; }
+								if ($val =~ /db_xref/) 
+								{ 
+									$db_xref = $tagvalues[0]; 
+									$db_xref =~ s/taxon://;
+								}
+							}
+						}
+
+						# ...but this information is. It seemed like a good
+						# idea to put them in the same place.
+						my $featstart = $feat->start();
+						my $featend = $feat->end();
+						$reverse = $feat->strand();
+						if (($start >= $featstart and $start <= $featend and $tag eq "CDS") or ($start >= $featstart and $end <= $featend and $tag eq "CDS"))
+						{
+							if ($debug == 1)
+							{
+								print "--\n";
+								print "NAME: $short_name\n";
+								print "TAG: $tag\n";
+								print "Start: $featstart\n";
+								print "Repstart: $start\n";
+								print "End: $featend\n";
+								print "--\n";
+							}
+							my @tags = $feat->all_tags();
+							foreach my $val (@tags)
+							{
+								my @tagvalues = $feat->each_tag_value($val);
+								if ($val =~ /gene/) { $genename = $tagvalues[0]; }
+								if ($val =~ /product/) { $prodname = $tagvalues[0]; }
+								if ($val =~ /protein_id/) { $protname = $tagvalues[0]; }
+							}
+						}
+					}
+				}
+
+				# print out stuff
+				print "\nFound ($match)$match_count msat at $start:\n" if ($screendump == 1);
+
+				# create Swissprot formatted output for Artemis
+				if ($artemis > 0) 
+				{
+					$feature = <<EOF;
+FT   repeat_region   $start..$end
+FT                   /label={$match}$match_count
+FT                   /note="($match)$match_count"
+FT                   /note="Coding:  $coding"
+FT                   /note="Gene: 	 $genename"
+FT                   /note="Product: $prodname"
+FT                   /note="Protein: $protname"
+EOF
+					print $feature if $screendump == 1;
+}
+
+				if ($artemis == 2) 
+				{
+					my ($fstart,$fend);
+					if ($start < $flank_size)
+					{
+						$fstart = 1;
+					}
+					else
+					{
+						$fstart = $start - $flank_size;
+					}
+					if (($end + $flank_size) > $genome_len)
+					{
+						$fend = $genome_len;
+					}
+					else
+					{
+						$fend = $end + $flank_size;
+					}
+					$feature_plus_flank = <<EOF;
+FT   repeat_region   $fstart..$fend
+FT                   /label={$match}$match_count
+FT                   /note="($match)$match_count + flanks"
+FT                   /note="Coding:  $coding"
+FT                   /note="Gene: 	 $genename"
+FT                   /note="Product: $prodname"
+FT                   /note="Protein: $protname"
+FT                   /note="Includes flanking region"
+EOF
+}
+		
+
+					# this makes sure that the various repeat length arrays are
+					# incremented only when a repeat larger than the last one
+					# is found (see the .matrix file for the result)
+    			$replength = $match_count if ($match_count > $replength);
+
+    			# print the feature to the artemis file if $artemis > 0
+    			if ($artemis > 0 && $whole_match) 
+    			{
+						$tabfile = "$short_name.msat_tab";
+						my $basename = [split(/\//, $file)]->[-1];
+						print "Opening output file $tabfile\n" if ($screendump == 1);
+       			open (ART, ">>$tab_dir/$tabfile") or die "Can't open $tab_dir/$tabfile file for writing: $!";
+						print ART $feature;
+
+						# link files in the artemis directory
+						unless (-e "$tab_dir$file")
+						{
+							print "Linking $file to $tab_dir\n" if ($debug == 1);
+							system("cd $tab_dir; ln -sf ../$basename .") == 0 or warn "Can't link $file to $tab_dir: $!";
+							close ART;
+	    			}
+						# print the "flank tabs" out
+						if ($artemis == 2)
+						{
+							$tabfile = "$short_name.flank_tab";
+							print "Opening output file $tabfile\n" if ($screendump == 1);
+     					open (ART2, ">>$bigtab_dir/$tabfile") or die "Can't open your $bigtab_dir/$tabfile for writing: $!";
+							print ART2 $feature_plus_flank;
+							unless (-e "$bigtab_dir$file")
+							{
+								print "Linking $file to $bigtab_dir\n" if ($debug == 1);
+								system("cd $bigtab_dir; ln -sf ../$basename .") == 0 or warn "Can't link $file to $bigtab_dir: $!";
+							}
+							close ART2;
+						}
+					}
+
+					# used for determining the sequence upstream and
+					# downstream of the match
+					# modify this based on ird code...
+					# fixed 3/4/06
+					if ($start < $flank_size) 
+					{ 
+    				$left = substr ($sequence_string, 0, $start-1);					
+					}
+					else 
+					{ 
+    				$left = substr ($sequence_string, $start-$flank_size, $flank_size-1);
+					}
+					if (($end + $flank_size) > length $sequence_string)
+					{
+   					$right = substr ($sequence_string, $end);
+					}
+					else
+					{
+   					$right = substr ($sequence_string, $end, $flank_size);
+					}
+    			$blaster=  $left . $whole_match . $right;
+					$flankseq = $left . $right;
+    			my $repeat_plus_flank = length $blaster; 
+					my $flankseq_length = length($flankseq);
+					my $motif_length = length($whole_match);
+
+					#calcuate %GC of flanks
+					$CGgen_flankseq = $flankseq =~ tr/cgCG/cgCG/;
+					$CGgen_flankseq = ($CGgen_flankseq/$flankseq_length)*100 unless ($flankseq_length == 0);
+					$CGgen_flankseq = sprintf("%.3f", $CGgen_flankseq);
+
+					#calcuate %GC of repeat
+					$CGgen_repeat = $whole_match =~ tr/cgCG/cgCG/;
+					print "CG\% MSAT: $CGgen_repeat / (length $whole_match))\n" if ($debug == 1);
+					$CGgen_repeat = ($CGgen_repeat/(length $whole_match))*100;
+					$CGgen_repeat = sprintf("%.3f", $CGgen_repeat);
+
+    			# this part writes the MINE.db files in
+    			# $PWD/MINE, one file per repeat
+    			#if ($mine == 1 && $whole_match).
+					# If debugging is turned on, produce output to stderr 
+					# if any flanking regions extend past the end of the sequence
+    			if ($whole_match)
+    			{
+						$minenum++;
+       			$mineend = $start . ".$match." . "$match_count";
+       			$checklength = ((2*$flank_size) + $match_len-1);
+       			$checkright = substr ($sequence_string, $end);
+       			$checkright_len = length $checkright;
+       			$checkright_len_pc = sprintf("%.2f", 100*($checkright_len/$genome_len));
+       			$checkleft = substr ($sequence_string, 1, $start-1);
+       			$checkleft_len = length $checkleft;
+       			$checkleft_len_pc = sprintf("%.2f", 100*($checkleft_len/$genome_len));
+       			if ($repeat_plus_flank < $checklength && $debug == 1)
+       			{
+	    				warn "Short flanks in $short_name.$mineend\:\t$checkleft_len\t$checkright_len\n";
+						}
+
+						########################################
+	        	# create new CGI for the MINE .db file #
+	        	########################################
+						if ($mine == 1)
+						{
+        			print "Writing MINE file $short_name.$mineend.db\n" if ($screendump == 1);
+        			open (ENTRY, ">$mine_dir/$short_name.$mineend.db") or die "Won't open $short_name.$mineend.db";
+        			my $entry = new CGI;
+							$entry -> delete('keywords');
+        			$entry -> append('filename', "$short_name.$mineend.db");
+        			if ($remote_link)
+        			{
+								$entry -> append('genome', "<a href=\"$remote_link$short_name\">$short_name</a>");
+							}
+							else
+							{
+		    				$entry -> append('genome', $short_name);
+							}
+       				$entry -> append('analysis_type', $analysis_type);	
+       				$entry -> append('specific_taxon', $prefix);
+       				$entry -> append('generic_taxon', $gentaxon);
+       				$entry -> append('organism', $organism); 	    
+       				$entry -> append('strand', "$strand") unless ($isaaa == 1); 	    
+       				$entry -> append('alphabet', $alphabet); 	    
+       				$entry -> append('binomial', $binomial); 	    
+       				$entry -> append('genus', $genus); 	    
+       				$entry -> append('species', $species); 	    
+       				$entry -> append('strain/subspecies', $sub_species); 	    
+       				$entry -> append('common_name', $common_name); 	    
+       				$entry -> append('definition', $def); 	    
+							$entry -> append('genome_length',$genome_len);
+							$entry -> append('flank_length', $flank_size);
+							$entry -> append('repeat_plus_flank', $repeat_plus_flank);
+       				$entry -> append('start', $start);
+       				$entry -> append('stop', $end);
+       				$entry -> append('repeat', "($match)$match_count");
+       				$entry -> append('motif', $match);
+       				$entry -> append('motifrevcom', $motif_revcom) unless ($isaaa == 1);
+       				$entry -> append('footprint', $match_len);
+      				$entry -> append('type', $motif_type);
+       				$entry -> append('dist_from_left', $checkleft_len);
+       				$entry -> append('pc_from_left', $checkleft_len_pc);
+							$entry -> append('dist_from_right', $checkright_len);
+							$entry -> append('pc_from_right', $checkright_len_pc);
+							$entry -> append('total_nt_coding', $tempcoding) unless ($isaaa == 1);
+							$entry -> append('percent_coding', $percentcode) unless ($isaaa == 1);
+							# N.B. MINE's search.cgi can't handle values of 0 - this
+							# feature should be set to "yes" or "no" for it to work.
+							$entry -> append('coding_msat', $coding) unless ($isaaa == 1);
+							$entry -> append('gene_name', $genename) unless ($isaaa == 1);
+ 							$entry -> append('protein_name', $protname) unless ($isaaa == 1);
+ 							$entry -> append('product_name', $prodname) unless ($isaaa == 1);
+							$entry -> append('No_of_coding_regions', $cdsnum) unless ($isaaa == 1);
+							$entry -> append('A/AT ratio', $aat) unless ($isaaa == 1);
+							$entry -> append('C/CG ratio', $cgc) unless ($isaaa == 1);
+							$entry -> append('GC content (genome)', $CGgenome) unless ($isaaa == 1);
+							$entry -> append('GC content (flanks)', $CGgen_flankseq) unless ($isaaa == 1);
+							$entry -> append('GC content (repeat)', $CGgen_repeat) unless ($isaaa == 1);
+							$entry -> append('Artemis_repeats', "$short_name.msat_tab");
+							$entry -> append('Artemis_flank_repeats', "$short_name.flank_tab");
+							$entry -> append('seq', $blaster);
+
+							$entry -> save("ENTRY");
+							close(ENTRY);
+						}
+    			}
+		
+					##############
+    			# fasta file #
+					##############
+
+					# write stuff
+					my $fout;
+					if ($isaaa == 1)
+					{
+						my $cname = $common_name || "N/A";
+						$fout = ">$short_name.$mineend, Name: $cname, Repeat: ($match)$match_count, start: $start, end: $end, thresholds: @thresholds, compliment=$reverse";
+						$fname = "$fasta_dir$short_name.$mineend";
+					}
+					else
+					{
+						$fout = ">$short_name.$mineend, Name: $common_name, Repeat: ($match)$match_count, start: $start, end: $end, thresholds: @thresholds, A:$base_a C:$base_c G:$base_g T:$base_t, coding=$coding, genename=$genename, proteinname=$protname, productname=$prodname, compliment=$reverse";
+					}
+					my $fname = "$fasta_dir$short_name.$mineend.fasta";
+	    		if ($fastafile == 1)
+	    		{
+       			print "Opening fasta FILE $fname\n" if ($screendump == 1);
+						open (FASTA, ">$fname") or die "Can't open your fasta file for writing: $!";
+						print FASTA "$fout\n";
+						print FASTA "$blaster\n";
+						close FASTA;
+    			}
+
+					# send left and right flanks to eprimer 
+					if ($run_eprimer == 1)
+					{
+						if ($isaaa == 1)
+						{
+							print "Primer generation disabled for AA files!\n" if $screendump == 1;
+						}
+						else
+						{
+							&primers($blaster,$match_len,$short_name,length($left),$mineend);
+						}
+					}
+
+					# now print the .db data to a text CSV file
+					# for general reference - "summary"
+					if (($isformat == 0 or $isformat == 2 or $isformat == 3) and $isaaa == 0)
+					{
+						print OUTPUT_FILE3 "$short_name.$mineend|$short_name|$prefix|$gentaxon|$division|$strand|$alphabet|$circular|$gdate|$binomial|$genus|$species|$sub_species|$specific_host|$lab_host|$db_xref|$note|$common_name|$organism|$def|$genome_len|$flank_size|$repeat_plus_flank|$start|$end|($match)$match_count|$match|$motif_revcom|$match_len|$match_count|$checkleft_len|$checkleft_len_pc|$checkright_len|$checkright_len_pc|$motif_type|$tempcoding|$percentcode|$coding|$genename|$protname|$prodname|$reverse|$primercheck{$short_name}|$CGgenome|$CGgen_flankseq|$CGgen_repeat|$cdsnum\n" if ($sumswitch == 1);
+					}
+					if (($isformat == 0  or $isformat == 2 or $isformat == 3) and $isaaa == 1)
+					{
+						print OUTPUT_FILE3 "$short_name.$mineend|$short_name|$prefix|$gentaxon|$division|$alphabet|$circular|$gdate|$binomial|$genus|$species|$sub_species|$specific_host|$lab_host|$db_xref|$note|$common_name|$genome_len|$flank_size|$repeat_plus_flank|$start|$end|($match)$match_count|$match|$match_len|$match_count|$checkleft_len|$checkleft_len_pc|$checkright_len|$checkright_len_pc|$motif_type\n" if ($sumswitch == 1);
+					}
+					if ($isformat == 1 and $isaaa == 0)
+					{
+						print OUTPUT_FILE3 "$short_name.$mineend|$short_name|$genome_len|$flank_size|$repeat_plus_flank|$start|$end|($match)$match_count|$match|$motif_revcom|$match_len|$match_count|$checkleft_len|$checkleft_len_pc|$checkright_len|$checkright_len_pc|$motif_type|$primercheck{$short_name}|$CGgenome|$CGgen_flankseq|$CGgen_repeat\n" if ($sumswitch == 1);
+					}
+					if ($isformat == 1 and $isaaa == 1)
+					{
+						print OUTPUT_FILE3 "$short_name.$mineend|$short_name|$genome_len|$flank_size|$repeat_plus_flank|$start|$end|($match)$match_count|$match|$match_len|$match_count|$checkleft_len|$checkleft_len_pc|$checkright_len|$checkright_len_pc|$motif_type\n" if ($sumswitch == 1);
+					}
+
+    			# increment the count of the number of 
+					# unique genomes with repeats
+    			if ($ncseen{$short_name} == undef) { $totalreps++; }
+    			$ncseen{$short_name}=1;
+
+    			# this hash determines the number of repeats per genome
+    			# each key will be reset each time through this loop 
+    			# resulting  in the highest number being retained.
+    			$mineseen{$short_name}=$minenum;
+
+    			# G+C content of the repeat
+    			$CGmatch = $whole_match =~ tr/cgCG/cgCG/;
+			
+    			# stop division by zero
+    			if ($match_len >0) {$CGmatch = ($CGmatch/$match_len)*100;}
+
+
+					# re-set reverse for each new repeat found
+					$reverse = 0; 
+				} # end of MATCH
+				# sort the motifs into order based on lenth then alphabet
+				print "SN(0): @motifs_in_this_genome\n" if ($debug == 2);
+				print "RL: $replength\n" if ($debug == 2);
+				$motifs_by_genome{$short_name} = \@motifs_in_this_genome;
+				$max_replength{$short_name} = $replength;
+		} # end while $in
+	} # end of ->next_seq()
+} # end of all the files in LISTFILE
+# SEARCHING COMPLETE
+
+# note if no errors found
+unless ($printerror == 1)
+{
+	print OUTPUT_FILE3 "No errors found\n";
+}
+
+
+# print out a list of all files, whether or
+# not they have repeats
+print "-----\n";
+
+foreach my $line (@all_files2)
+{
+	# extract number of repeats
+  $line =~ /^(.+?)\|/;
+  $file = $1;
+  $numreps = $mineseen{$file};
+	$repsum = $repseen{$file};
+	$def = $defseen{$file};
+	my $count_coding_reps = $pccodreps{$file};
+	my $pccr;
+	if ($numreps > 0 and $isformat != 2)
+	{
+		$pccr = 100 * ($count_coding_reps/$numreps);
+		$pccr = sprintf("%.3f", $pccr);
+	}
+	else
+	{
+		$pccr = "N/A";
+	}
+
+	# set a switch (0/1) if there are msats
+	my $repyn;
+	if ($numreps == 0) { $repyn = 0; }
+	elsif ($numreps > 0) { $repyn = 1; }
+
+	# determine genome length
+	my $genome_length = $genlenhash{$file};
+	if ($genome_length > 0 && $repsum > 0)
+	{
+		$repsumpc = 100*($repsum/$genome_length);
+		$repsumpc = sprintf("%.3f", $repsumpc);
+	}
+	else
+	{
+		$repsumpc = 0;
+	}
+	unless (defined $numreps) { $numreps = "0"; }
+	print "numreps: $numreps, file: $file\n" if ($debug == 1);
+	if ($isformat == 0 or $isformat == 2 or $isformat == 3)
+	{
+  	print OUTPUT_FILE5 "$line|$repsum|$repsumpc|$repyn|$numreps\n";
+	}
+	if ($isformat == 1)
+	{
+  	print OUTPUT_FILE5 "$line|$repsum|$repsumpc|$repyn|$numreps\n";
+	}
+	if ($debug == 1)
+	{
+		print "FILE: $file\n";
+		print "RS: $repsum\n";
+		print "DEF: $def\n";
+		print "CCR: $count_coding_reps\n";
+		print "NR: $numreps\n";
+		print "PCCR: $pccr\n";
+		print "-----\n";
+	}
+}
+
+# do a bit of summary to STDOUT
+if ($screendump ==1 )
+{
+	print "\n\nA total of $count files surveyed\n";
+	foreach $allfile (@all_files) { print "$allfile\n"; }
+	if (defined $dodgy[0])
+	{
+		print "\n\nFiles with invalid GC content were found.\n";
+		foreach $dodgy (@dodgy) 
+		{ 
+			print OUTPUT_FILE1 "INVALID_GC|$dodgy\n"; 
+			$printerror = 1;
+		}
+		print "\n\n";
+	}
+}
+
+#############################
+# provide handy index files #
+#############################
+# set up arrays/hashes for summation of all
+# values over all genomes - fill these with values
+# for single genomes, calculated in the next loop
+# and print them later
+my %overall_size_matrix=();	
+my $overall_max_replength = 0;
+my %overall_repeat_counter =();
+my %rem_revcom = ();
+# determine the lowest threshold in use
+my @lowest_un;
+foreach my $mr (@motif_range)
+{
+	push (@lowest_un, $thresholds[$mr]) if (defined $thresholds[$mr]);	
+}
+my @lowest = sort { $a <=> $b } @lowest_un;
+
+#####################################
+# print count files for each genome #
+#####################################
+foreach my $short_name (@short_names)	
+{
+	print "SN(1): $short_name\n" if ($debug == 2);
+	next unless ($has_msat{$short_name} == 1);
+	print "SN(2): $short_name\n" if ($debug == 2);
+	# get max replength
+	$overall_max_replength = $max_replength{$short_name} if ($max_replength{$short_name} > $overall_max_replength);
+
+	# display by exact motif
+	my $count_file = "$count_dir/$short_name.motif.count";
+	open (COUNTFILE, ">$count_file") or die "Can't open the file \"$count_dir/$count_file\": $!";
+	print COUNTFILE "units,";
+	foreach my $unmot ($motifs_by_genome{$short_name})
+	{
+		print "UN: @$unmot\n" if ($debug == 2);
+		my @out = ();
+		my @sorted = sort { length($a) <=> length($b) || $a cmp $b} @$unmot;
+		foreach my $un (@sorted)
+		{
+			 push (@out,$un);
+		}
+		my $out = join ",", @out;
+		$out =~ s/,$//;
+		print COUNTFILE "$out\n";
+		print "OUT: $out\n" if ($debug == 2);
+	}
+	for (my $k=$lowest[0];$k<=$max_replength{$short_name};$k++)
+	{
+		print COUNTFILE "$k,";
+		foreach my $unmot ($motifs_by_genome{$short_name})
+		{
+			my $count = 1;
+			my @sorted = sort { length($a) <=> length($b) || $a cmp $b} @$unmot;
+			foreach my $un (@sorted)
+			{
+				print COUNTFILE $repeat_counter{$short_name}{$un}[$k] || 0;
+				print COUNTFILE "," unless $count == scalar(@$unmot);
+				$overall_repeat_counter{$un}[$k] += $repeat_counter{$short_name}{$un}[$k];
+				$count++;
+			}
+		}
+		print COUNTFILE "\n";
+	}
+	close COUNTFILE;
+
+	# by motif length
+	# first, print file header
+	$count_file = "$count_dir/$short_name.type.count";
+	open (COUNTFILE, ">$count_file") or die "Can't open the file \"$count_dir/$count_file\": $!";
+	print COUNTFILE "units,";
+	my $out =  join ",", @motif_range;
+	$out =~ s/,$//;
+	print COUNTFILE "$out\n";
+	my %size_matrix=();	
+	# count up the number of each class of msat
+	for (my $k=$lowest[0];$k<=$max_replength{$short_name};$k++)
+	{
+		foreach my $unmot ($motifs_by_genome{$short_name})
+		{
+			foreach my $un (@$unmot)
+			{
+				my $thing;
+				if ($un =~ /-/) { $thing = [split(/-/,$un)]->[0]; }
+				else { $thing = $un; }
+				$size_matrix{length($thing)}[$k] += $repeat_counter{$short_name}{$un}[$k];
+				$overall_size_matrix{length($thing)}[$k] += $repeat_counter{$short_name}{$un}[$k];
+			}
+		}
+	}
+	# print them to file
+	for (my $k=$lowest[0];$k<=$max_replength{$short_name};$k++)
+	{
+		print COUNTFILE "$k,";
+		foreach my $i (@motif_range)
+		{
+			print COUNTFILE $size_matrix{$i}[$k] || 0;
+			print COUNTFILE "," unless $i == @motif_range[-1];
+		}
+		print COUNTFILE "\n";
+	}
+	close COUNTFILE;
+}
+
+#########################################################
+# print out summary files of numbers and types of msats #
+# found in all genomes                                  #
+#########################################################
+# by motif length
+my $count_file = "$abs_path$prefix.type.count";
+open (COUNTFILE, ">$count_file") or die "Can't open the file \"$count_dir/$count_file\": $!";
+# print headers
+print COUNTFILE "units,";
+my $out =  join ",", @motif_range;
+$out =~ s/,$//;
+print COUNTFILE "$out\n";
+
+# new "do calculations"
+my %size_matrix=();	
+# count up the number of each class of msat
+for (my $k=$lowest[0];$k<=$overall_max_replength;$k++)
+{
+	foreach my $un (@all_motifs)
+	{
+		my $thing;
+		if ($un =~ /-/) { $thing = [split(/-/,$un)]->[0]; }
+		else { $thing = $un; }
+		$size_matrix{length($thing)}[$k] += $repeat_counter{all}{$un}[$k];
+		#$overall_size_matrix{length($thing)}[$k] += $repeat_counter{all}{$un}[$k];
+	}
+}
+# print them to file
+for (my $k=$lowest[0];$k<=$overall_max_replength;$k++)
+{
+	print COUNTFILE "$k,";
+	foreach my $i (@motif_range)
+	{
+		print COUNTFILE $size_matrix{$i}[$k] || 0;
+		print COUNTFILE "," unless $i == @motif_range[-1];
+	}
+	print COUNTFILE "\n";
+}
+close COUNTFILE;
+
+# genome totals, but by exact motif 
+# use reverse compliment of motifs for this one (only), 
+# to reduce size of the file
+my $count_file = "$abs_path$prefix.motif.count";
+open (COUNTFILE, ">$count_file") or die "Can't open the file \"$count_dir/$count_file\": $!";
+print COUNTFILE "units,";
+
+# print headers
+my @sorted = sort { length($a) <=> length($b) || $a cmp $b} @all_motifs;
+my %mseen=();
+
+# prepare another hash with revcom'd motifs therein
+my %revcoms = ();
+my @word_keys = ();
+for (my $k=$lowest[0];$k<=$overall_max_replength;$k++)
+{
+	foreach my $motif (@sorted)
+	{
+		my $key;	
+		if ($motif =~ /-/)
+		{
+			my @parts = split(/-/,$motif);
+			my @reas;
+			foreach my $part (@parts)
+			{
+				my $bit = join '', sort split '', $part;
+				push(@reas,$bit);
+			}
+			$key = join '-', @reas;
+		}
+		else
+		{
+			$key = join '', sort split '', $motif;
+		}
+		push (@word_keys, $key) unless ($mseen{$key} == 1);;
+		$revcoms{$key}[$k] += $overall_repeat_counter{$motif}[$k];
+		$mseen{$key} = 1;
+	}
+}
+
+my $rcout = join ",", @word_keys;
+$rcout =~ s/,$//;
+print COUNTFILE "$rcout\n";
+
+# print values
+for (my $k=$lowest[0];$k<=$overall_max_replength;$k++)
+{
+	my $count = 1;
+	print COUNTFILE "$k,";
+	my @sorted = sort { length($a) <=> length($b) || $a cmp $b} @all_motifs;
+	foreach my $un (@word_keys)
+	{
+		print COUNTFILE $revcoms{$un}[$k] || 0;
+		print COUNTFILE "," unless $count == scalar(@word_keys);
+		$count++;
+	}
+	print COUNTFILE "\n";
+}
+close COUNTFILE;
+
+# get total length of genomes searched
+my $totlen = 0;
+foreach my $length(@genome_len)
+{
+	$totlen += $length;
+}
+
+# do an index file with an overall summary.
+# count total msats by type
+my %totalcount = ();
+foreach my $i (@motif_range)
+{
+	foreach my $num (@{$overall_size_matrix{$i}})
+	{
+		$totalcount{$i} += $num;
+	}
+}
+
+# count total msats by motif
+# compressing by revcom
+my %totalrevcom = ();
+my $numrevs = 0;
+foreach my $stuff (@sorted)
+{
+	for (my $k=$lowest[0];$k<=$overall_max_replength;$k++)
+	{
+		my $key;
+		if ($stuff =~ /-/)
+		{
+			$key = join '', sort split '', [split(/-/,$stuff)]->[0];
+		}
+		else
+		{
+			$key = join '', sort split '', $stuff;
+		}
+		$totalrevcom{$key} += $overall_repeat_counter{$stuff}[$k];
+	}
+}
+
+my $totfound = $numall || 0;
+my $totint = $numint || 0;
+
+# the main summary file
+my %engine_list = (1 => 'regex',
+									 2 => 'multipass',
+									 3 => 'iterative');
+print OUTPUT_FILE2 <<EOF;
+** msatfinder v. $version **
+
+This analysis was run on $date 
+
+Engine used = $engine_list{$engine}
+Total number of sequences surveyed = $total_ids
+Number of sequences containing repeats =  $totalreps
+Total number of bp searched =  $totlen
+Total number of msats with primers = $primercount
+Total number of microsatellites found =  $totfound
+EOF
+if ($runird == 1)
+{
+	print OUTPUT_FILE2 "Proportion of interrupted msats =  $totint/$totfound\n\n";
+}
+else
+{
+	print OUTPUT_FILE2 "\n";
+}
+
+print OUTPUT_FILE2 "motif_type\tthreshold\tnumber_found\n";
+foreach my $i (@motif_range)
+{
+	print OUTPUT_FILE2 $i, "\t\t", $thresholds[$i-1], "\t\t", $totalcount{$i} || 0, "\n";
+}
+print OUTPUT_FILE2 "\n";
+print OUTPUT_FILE2 "motif\t\tnumber_found\n";
+foreach my $rco (@word_keys)
+{
+	print OUTPUT_FILE2 $rco . "\t\t" . $totalrevcom{$rco}, "\n";
+}
+
+####################################################################
+# print out a handy index file in order to assist users in finding #
+# their data, once the program is complete                         #
+####################################################################
+my $data_index = "results.html";
+open (DI, ">$data_index") or die "Can't open $data_index: $!";
+print DI "<html>\n<head>\n</head><body>\n";
+print DI <<EOF;
+<p>Below is a listing of the various directories and files created by msatfinder, <i>viz.</i>
+<ul>
+<li><b>$repeat_dir</b> contains most of the summary information, including the overall summary, <a href="$repeat_dir/$prefix.index">$prefix.index</a>.
+<li><b>$count_dir</b> summary of msat types and motifs for each sequence run.
+<li><b>$fasta_dir</b> fasta files for each msat found.
+<li><b>$prime_dir</b> primer files for each msat found.
+<li><b>$tab_dir</b>, <b>$bigtab_dir</b> feature tables for viewing in artemis (with and without flanks, respectively).
+<li><b>$mine_dir</b> MINE files - summaries of information on each msat, for use with the MINE code from our lab.
+</ul>
+EOF
+foreach my $dir ($repeat_dir,$count_dir,$fasta_dir,$prime_dir,$tab_dir,$bigtab_dir,$mine_dir)
+{
+	print DI "<p><b>$dir</b></p>\n";
+	my @files = glob "$dir*";
+	foreach my $file (@files)
+	{
+		my $fileroot = [split("/",$file)]->[-1];
+		print DI "<a href=\"$file\">$fileroot</a><br>\n";
+	}
+}
+print DI "</body>\n</html>";
+close DI;
+
+######################################
+# summarise primers in a single file #
+######################################
+if ($run_eprimer == 1)
+{
+	# N.B. Bio::Seq::PrimedSeq, Bio::Tools::Primer3 are not used because 
+	# they are rubbish. The latter is broken and the former returns results
+	# as a messy jumble, not in order
+	my $outfile = "$repeat_dir/primers.csv";
+	open (OUT, ">$outfile") or warn "Can't open $outfile: $!";
+	my @files = glob "$prime_dir*primers.txt";
+	print OUT "msat,num,prod_size,f-primer,f-len,f-temp,f-gc,f-seq,r-primer,r-len,r-temp,r-gc,r-seq\n";
+	foreach my $file (@files)
+	{
+		my $msat = $file;
+		$msat =~ s/Primers\///;
+		$msat =~ s/\.primers.txt$//;
+		open (IN, "<$file") or warn "Can't open $file: $!";
+		my ($num,$prod_size,$f_start,$f_len,$f_temp,$f_gc,$f_seq,$r_start,$r_len,$r_temp,$r_gc,$r_seq);
+		while (my $line = <IN>)
+		{
+			next if ($line =~ /^#/ or $line =~ "");
+			if ($line =~ /^\s+\d/)
+			{
+				my @stuff = split(/\s+/,$line);
+				$prod_size = $stuff[4];
+				$num = $stuff[1];
+			}
+			elsif ($line =~ /FORWARD/)
+			{
+				my @stuff = split(/\s+/,$line);
+				$f_start = $stuff[3];
+				$f_len = $stuff[4];
+				$f_temp = $stuff[5];
+				$f_gc = $stuff[6];
+				$f_seq  = $stuff[7];
+			}
+			elsif ($line =~ /REVERSE/)
+			{
+				my @stuff = split(/\s+/,$line);
+				$r_start = $stuff[3];
+				$r_len = $stuff[4];
+				$r_temp = $stuff[5];
+				$r_gc = $stuff[6];
+				$r_seq  = $stuff[7];
+				print OUT "$msat,$num,$prod_size,$f_start,$f_len,$f_temp,$f_gc,$f_seq,$r_start,$r_len,$r_temp,$r_gc,$r_seq\n";
+			}
+		}
+		close IN;
+	}
+	close OUT
+}
+
+###########################################
+# Deal with any duplicated sequence names #
+###########################################
+if (%duplicates != ())
+{
+	my @duplicates;
+	foreach my $key (sort(keys(%duplicates)))
+	{
+		if ($duplicates{$key} > 1)
+		{
+			push (@duplicates, $key);
+		}
+	}
+	if (scalar @duplicates > 0)
+	{
+		print "A total of ".scalar @duplicates." sequence names were repeated two or more times.  Msatfinder will reject any sequence whose name has been already used.  The duplicated names are listed in the errors file.\n\n\n";
+		foreach my $i (@duplicates)
+		{
+			print OUTPUT_FILE1 "REPEATED NAME|$i\n";
+		}
+	}
+}
+
+
+#############
+# finished! #
+#############
+print "Msatfinder finished!\n";
+
+
+#############
+# FUNCTIONS #
+#############
+
+# determine whether primers can be made from the
+# left and right flanking sequences
+#&primers($blaster,$match_len,$short_name,length($left),$mineend);
+sub primers
+{
+	my $priseq = shift;
+	my $mlen = shift;
+	my $id = shift;
+	my $left = shift;
+	my $end = shift;
+
+	# make sure that primers include the repeat region
+	my $start_include = $left -1;
+	my @endings = split(/\./,$end);
+	my $end_include = $left + (length($endings[1]) * $endings[2]) + 1;
+
+	# get primer data
+	my $infile = "$prime_dir$id.$end.temp";
+	open (WRITE, ">$infile") or die "Can't open $infile: $!";
+	print WRITE $priseq;
+	close WRITE;
+	my $outfile = "$prime_dir$id.$end.primers.txt";
+	if ($screendump == 1)
+	{
+		print "Determining PCR primers.\n";
+		print "Outfile: $outfile\n";
+	}
+	system("$find{eprimer3} -sequence $infile -outfile $outfile -target $start_include,$end_include $eprimer_args > /dev/null 2>&1") == 0 or warn "Could not run \"$find{eprimer3} -sequence $infile -outfile $outfile -target $start_include,$end_include $eprimer_args\"; $!";
+	if ($screendump == 1)
+	{
+		print "Running command: $find{eprimer3} -sequence $infile -outfile $outfile -target $start_include,$end_include $eprimer_args\n";
+		print "Unlinking file: $infile\n"
+	}
+	unlink $infile unless ($debug == 1);
+	$primercount++;
+	$primercheck{$id} = 1;
+	# remove output files if no primers were found, unless the user wants to know why
+	unless ($eprimer_args =~ /pickanyway/ and $eprimer_args =~ /explain/)
+	{
+		if (-e $outfile)
+		{
+			open (CHECK, "<$outfile") or die "Error checking eprimer output $outfile: $!";
+			my @lines = <CHECK>;
+			close CHECK;
+			unless (grep /FORWARD/, @lines)
+			{
+				unlink $outfile;
+				print "No valid primers found for $id\n" if ($screendump == 1);
+				$primercount--;
+				$primercheck{$id} = 0;
+			}
+		}
+	}
+}
+
+#########################################
+# find microsatellites by various means #
+#########################################
+# there are three means available:
+# 1. Iterate through the sequence once, trying to build the longest msat possible.
+# 2. Go through once with a powerful regular expression, and post-filter.
+# 3. Go through scalar $motif_range times, finding all msats.
+sub findmotifs_iterate 
+{
+	no warnings;
+	my $sequence = shift;
+	my $whirley = shift;
+	my $screendump = shift;
+	my $genome = shift;
+	my @result = ();
+	my $iterate = 0;
+	CREEP: while ($iterate < (length($sequence) -1)) # position within sequence
+	{
+		print STDERR "Please wait: ", $whirley->(), "\r" if ($screendump == 1);
+		print "IT: $iterate\n" if ($debug == 2);
+		CHECK: foreach my $i (@motif_range) # mono,di,tri &c.
+		{
+			print "I: $i, ", $motif_range[-1], "\n" if ($debug == 2);
+			my $units = 1; # number of repeat units of msat
+			my $first = substr($sequence,$iterate,$i);
+			# attempt to extend the match...
+			while (1) 
+			{
+				my $offset = $iterate + ($units*$i);
+				my $subsequent = substr($sequence,$offset,$i);
+				print "Comp(1): $first, $subsequent, $i\n" if ($debug == 2);
+				if ($first ne $subsequent)
+				{
+					print "Comp(2): $first, $subsequent, $i\n" if ($debug == 2);
+					if ($units >= $thresholds[$i-1])
+					{
+						# attempt to reject false matches here, e.g. a tri picked up
+						# as hexa or nona, &c.
+						my $footprint = $units * $i;
+						if (&splitmotif($first) == 1) # reject this - it's too small
+						{
+							$iterate = $iterate + $footprint;
+							next CREEP;
+						}
+						else # keep this one, as it is a good match after all!
+						{
+							print "Match($units): ", "$first." x $units, "\n" if ($debug == 2);
+							my $name = "$genome." . ($iterate+1) . ".$first." . ($footprint/length($first));
+							#push(@result,{motif=>$first,footprint=>$footprint,mpos=>($iterate+1)});
+							push (@result,$name);
+							$iterate = $iterate + $footprint;
+							next CREEP;
+						}
+					}
+					elsif ($i < $motif_range[-1])
+					{
+						next CHECK;
+					}
+					else
+					{
+						$iterate++;
+						next CREEP;
+					}
+				}
+				$units++;
+			}
+		}
+	}
+	return \@result;
+}
+# thanks to T. Booth for this one 
+sub findmotifs_regex
+{
+	# V3 with speed of teh true ninja 
+	my $sequence = shift;
+	my $whirley = shift;
+	my $screendump = shift;
+	my $genome = shift;
+	my @result = ();
+
+	#Internal stuff
+	#savepos must be declared with 'our' to see it within the regex.
+	our $savepos;
+	# Pre-generate main regex for even more speed:
+	our ($mr, $regexes1);
+	if(!$mr)
+	{
+		#Setup environment...
+		$mr = $minrep - 2;
+		$regexes1 = qr/((.{1,$maxmotiflen}?)(?>\2)\2{$mr,})/;
+	}
+
+	#Use a regex to spot candidate repeats
+	#This will favour short motifs over long ones
+	while ($sequence =~ /$regexes1/g)
+	{
+		my $motif = $2;
+		my $motiflen = length($2);
+
+		my $footprint = length($1);
+		$savepos = pos($sequence);
+		my $mpos = $savepos - $footprint;
+		next unless ($thresholds[$motiflen - 1] =~ /\d+/);
+
+		#We have a candidate but: consider aaaaataaaaataaaaataaaaataaaaat
+		#    where the footprint of aaaaa (5)  is shorter than the longest motif (6).
+		#
+		#  Design decision : if thresholds permit motif longer than shortest footprint
+		#  then bail out - see above - that sorts out the ambiguity and takes us to the next case.
+		#    
+		#    Also - consider aaaaataataataataatg
+		#    Do we want a(5) and taa(4) or aat(5) ?
+		#    Depends if a(5) is within the threshold.
+		#
+		#    If threshold check fails re-scan from $pos with new $minmotiflen
+		#    and look for a better candidate starting within the original footprint.
+
+		while( $footprint < $thresholds[$motiflen - 1] * $motiflen )
+		{
+			print STDERR "Please wait: ", $whirley->(), "\r" if ($screendump == 1);
+	    $motif = undef;
+	    pos($sequence) = $mpos;
+	    my $minmotiflen = $motiflen + 1;
+	    last if $minmotiflen > $maxmotiflen;
+
+	    # This was really slow for big sequences because it scans the whole of the rest
+	    # of the sequence.  In fact we only need to look up to savepos
+ 	    #  $sequence =~ /$regexes[$minmotiflen]/g;
+	    #
+	    #
+	    # last if !pos($sequence); # No match at all 
+	    # 
+	    # $mpos = pos($sequence) - length($1);
+	    # last if $mpos >= $savepos; # Match later in sequence - we'll come back to it.
+	    
+	    #Alternative uses a hook into the regex engine:
+	    use re 'eval';
+ 	    $sequence =~ /( (.{$minmotiflen,$maxmotiflen}?) 
+ 			    (?(?{$-[2]<$savepos})(?:(?>\2)\2{$mr,})|(.) )
+ 			  )/gx;
+
+	    #Give up if we hit the end or go past $savepos and therefore matched one char
+	    last if $3;
+	    last unless pos($sequence);
+
+	    $mpos = pos($sequence) - length($1);
+	    $motif = $2;
+	    $motiflen = length($2);
+	    $footprint = length($1);
+		}
+
+		# So now we have 2 cases:
+		# 1) $motif is set - add to array
+		# 2) $motif is undef : reset pos to $savepos and continue
+		if($motif) 
+		{
+			if (&splitmotif($motif) == 1)
+			{
+	    	pos($sequence) = $savepos;
+				next;
+			}
+			my $name = "$genome." . ($mpos+1) . ".$motif." . ($footprint/$motiflen);
+			# the "if grep" is a crude hack to get around the fact that the pregenerated
+			# regexps will find things you don't want if you have set, for example,
+			# motif types of 1,2,4,5,6. This way they don't appear in the output.
+			push (@result, $name) if (grep /$motiflen/, @motif_range);
+		}
+		else
+		{
+	    pos($sequence) = $savepos;
+		}
+	} # end main loop	
+	return \@result;
+}
+sub findmotifs_multipass
+{
+	# useful in that it finds overlapping msats - each pass through
+	# the sequence pays no heed to the result of previous passes, so
+	# results may differ from the previous two methods
+	my $sequence = shift;
+	my $whirley = shift;
+	my $screendump = shift;
+	my $genome = shift;
+	my @result = ();
+	foreach my $i (@motif_range)
+	{
+		my $pattern = "." x $i;
+		my $thresh = ($thresholds[$i-1] - 1);
+		while ($sequence =~ /(($pattern)\2{$thresh,})/g)
+		{
+			print STDERR "Please wait: ", $whirley->(), "\r" if ($screendump == 1);
+			my $whole_match = $1;
+			my $match = $2 if (defined $2);
+			if (&splitmotif($match) == 1)  { next; } # reject this - it's too small
+			else
+			{
+				my $name = "$genome." . (1 + pos($sequence)-length($whole_match)) . ".$match." . (length($whole_match)/length($match));
+				push (@result, $name);
+				#push(@result,{motif=>$match,footprint=>length($whole_match),mpos=>(1 + pos($sequence)-length($whole_match))});
+			}
+		}
+	}
+	return \@result; 
+}
+
+# add arrays
+sub addarrays
+{
+	my @res = (); my ($ar, $i);
+	for $ar (@_) { for($i = 0; $i < @$ar; $i++) { $res[$i] += $ar->[$i] if $ar->[$i] } };
+	return @res;
+}
+
+# print output files
+sub fileheaders
+{
+	my $isformat = shift;
+	my $isaaa = shift;
+	# Genbank &c. file
+	if (($isformat == 0 or $isformat == 2 or $isformat == 3) and $isaaa == 0)
+	{
+		print OUTPUT_FILE3 "repeat|genome|specific_taxon|generic_taxon|division|strand|alphabet|circular|date|binomial|genus|species|strain/subspecies|specific_host|lab_host|taxid|notes|common_name|organism|definition|genome_length|flank_length|repeat_plus_flank|start|stop|motif_units|motif|motifrevcom|footprint|repeat_units|dist_from_left|pc_from_left|dist_from_right|pc_from_right|motif_type|total_nt_coding|percent_coding|coding_repeat|gene|protein|product|reverse|primers|GC_content(genome)|GC_content(flank)|GC_content(repeat)|No_of_coding_regions\n";
+		print OUTPUT_FILE5 "genome|specific_taxon|generic_taxon|division|strand|alphabet|circular|date|binomial|genus|species|strain/subspecies|specific_host|lab_host|taxid|notes|common_name|organism|definition|genome_length|total_nt_coding|percent_coding|GC_content|no_of_coding_regions|a|t|g|c|a/at|c/gc|total_rep_length|pc_repeats|msats|No_of_msats\n";
+	}
+	if (($isformat == 0  or $isformat == 2 or $isformat == 3) and $isaaa == 1)
+	{
+		print OUTPUT_FILE3 "repeat|genome|specific_taxon|generic_taxon|division|alphabet|circular|date|binomial|genus|species|strain/subspecies|specific_host|lab_host|taxid|notes|common_name|sequence_length|flank_length|repeat_plus_flank|start|stop|motif_units|motif|footprint|repeat_units|dist_from_left|pc_from_left|dist_from_right|pc_from_right|motif_type\n";
+		print OUTPUT_FILE5 "genome|specific_taxon|generic_taxon|division|alphabet|circular|date|binomial|genus|species|strain/subspecies|specific_host|lab_host|taxid|notes|common_name|sequence_length|total_rep_length|pc_repeats|msats|No_of_msats\n";
+	}
+	# fasta file 
+	if ($isformat == 1 and $isaaa == 0)
+	{
+		print OUTPUT_FILE3 "repeat|genome|genome_length|flank_length|repeat_plus_flank|start|stop|motif_units|motif|motifrevcom|footprint|repeat_units|dist_from_left|pc_from_left|dist_from_right|pc_from_right|motif_type|primers|GC_content(genome)|GC_content(flank)|GC_content(repeat)\n";
+		print OUTPUT_FILE5 "genome|genome_length|GC_content|A|T|G|C|A/AT|C/GC|total_rep_length|pc_repeats|msats|No_of_msats\n";
+	}
+	# fasta file (amino acid)
+	if ($isformat == 1 and $isaaa == 1)
+	{
+		print OUTPUT_FILE3 "repeat|genome|genome_length|flank_length|repeat_plus_flank|start|stop|motif_units|motif|footprint|repeat_units|dist_from_left|pc_from_left|dist_from_right|pc_from_right|motif_type\n";
+		print OUTPUT_FILE5 "genome|genome_length|total_rep_length|pc_repeats|msats|No_of_msats\n";
+	}
+}
+
+# determine if msat can be
+# split into smaller motifs
+sub splitmotif # run only for engine 2?
+{
+	my $motif = shift;
+	my $length = length $motif;
+	print "Motif: $motif\n" if ($debug == 1);
+	for (my $i=1;$i<$length;$i++)
+	{
+		# split motif into array of items of 
+		# length $i
+		my @stuff = ();
+		my $pos = 0;
+		while ($pos < $length)
+		{
+			push(@stuff,substr($motif,$pos,$i));
+			$pos += $i;
+		}
+		# see if all items in array match...
+		if (scalar @stuff > 1) # ...unless there's only one item, or none.
+		{
+			my @matching = grep { /^$stuff[0]$/ } @stuff;
+			if (scalar @stuff == scalar @matching)
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+#####################################
+# perform various size calculations #
+#####################################
+
+# add msat + flanking regions together #
+sub addregion 
+{
+	my ($start,$end) = @_;
+	if ($start > $end)
+	{
+		($start,$end) = ($end,$start);
+	}
+	my $done = 0;
+	my $k;
+	my $tempcoding = 0;
+
+	for ($k=0;$k<@nreg;$k++)
+	{
+		# new region starts after old region ends
+		next if ($nreg[$k][1] < $start);
+
+		# new region ends before old region starts
+		if ($end < $nreg[$k][0])
+		{
+			splice(@nreg,$k,0,[$start,$end]);
+			$done = 1;
+			last;
+		}
+
+		# regions overlap
+		$nreg[$k][0] = $start < $nreg[$k][0] ? $start : $nreg[$k][0];
+		$nreg[$k][1] = $end > $nreg[$k][1] ? $end : $nreg[$k][1];
+		$done = 1;
+
+		# Combine two regions if the new section has brough about an overlap
+		while ($k < $#nreg and $nreg[$k][1] > $nreg[$k+1][0])
+		{
+			$nreg[$k][1] = $nreg[$k+1][1];
+			splice(@nreg,$k+1,1);
+		}
+		last;
+	}
+	unless ($done)
+	{
+		push @nreg,[$start,$end];
+	}
+}
+
+# determine if region is within the defined area
+sub isitin 
+{
+	my ($what) = @_;
+	my $within = 0;
+	my $k;
+	for ($k=0; $k<@nreg; $k++)
+	{
+		if ($what >= $nreg[$k][0] and $what <= $nreg[$k][1])
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+# return length of coding regions
+sub howlong
+{
+	my $length;
+	for (my $k=0; $k<@nreg; $k++)
+	{
+		$length += ($nreg[$k][1] - $nreg[$k][0]);
+	}
+	return $length;
+}
+
+###############################
+# depchecks, config files &c. #
+###############################
+# read config file
+sub getconfig
+{
+	my $cwd = shift;
+	my $arg = shift;
+	my $config_file="msatfinder.rc";
+	my %config;
+	if (-R "$cwd/$config_file")
+	{
+		Config::Simple->import_from("$cwd/$config_file", \%config);
+		print "Using config file in $cwd\n" unless ($0 =~ /viewer/ or $> == 48); # or 81...
+		return \%config;
+	}
+	elsif ($arg =~ /-h/ or $arg =~ /--help/)
+	{
+		return \%config;
+	}
+	else
+	{
+		print "No configuration file was found. Please make sure you have a copy of msatfinder.rc in $cwd, and try again.\n";
+		print "If msatfinder was installed as a Bio-Linux package, you'll find the file you need (msatfinder.rc) in /usr/local/bioinf/msatfinder/\n";
+		print "Or, if you installed from an ebuild, it will be in  /usr/share/doc/msatfinder-$version\n";
+		print "Exiting.\n";
+		exit;
+	}
+}
+
+# check dependencies
+sub depcheck
+{
+	my $find = shift;
+	my $screendump = shift;
+	my @missing;
+	foreach my $dep (@_)
+	{
+		if (-x $find->{$dep})
+		{
+			print "Dependency $dep found.\n" if ($screendump == 1);
+		}
+		else # at least try to find it even if the confit is wrong
+		{
+			my $search = `which $dep 2> /dev/null`;
+			chomp($search);
+			if ($search =~ /aliased to (\.+)/)
+			{
+				$find->{$dep} = $1;
+				print "$dep found, but not where your config file says it should be. Continuing...\n" if ($screendump == 1);
+			}
+			elsif (-x $search)
+			{
+				$find->{$dep} = $search;
+				print "$dep found, but not where your config file says it should be. Continuing...\n" if ($screendump == 1);
+			}
+			else 
+			{
+				push(@missing, $dep);
+			}
+		}
+	}
+	if (@missing)
+	{
+		print "The following dependencies are not found: @missing\n";
+		print "Please add the full path to each dependency to the configuration file and try again.\n";
+		exit;
+	}
+}
+
+
+
+#################################################
+# IRD - the Interrupted Repeat Detector routine #
+#################################################
+sub ird
+{
+	# create an msat object for each line of info
+	# store objects in a hash, and also relate names
+	# of msats to genomes for printing later.
+	my @incoming = @_;
+	my @allmsats = ();
+	my @interrupts = ();
+	my %msats = ();
+	my %linked = ();
+	my %seen = ();
+	my %root = ();
+	my %components = ();
+
+	# hashes that store the results lines
+	my %revname = ();
+	my %revdist = ();
+
+	# order msats within the genome,
+	# both forward and reverse
+	my @msats = sort { [split(/\./,$a)]->[1] <=> [split(/\./,$b)]->[1] } @incoming;
+	my ($old,$oend);
+	foreach my $msat (@msats)
+	{
+		my @parts = split(/\./, $msat);
+		my $loc = $parts[1];
+		my $fp = length($parts[2]) * $parts[3];
+		my $end = $loc + $fp;
+		my $dist = $loc - $oend;
+		$revname{$msat} = $old;	
+		$revdist{$msat} = $dist unless ($old eq "");
+		$old = $msat;
+		$oend = $end;
+	}
+
+	# determine which are interrupted msats
+	my $om;
+	foreach my $msat (@msats)
+	{
+		my @parts = split(/\./, $msat);
+		my $loc = $parts[1];
+		my $ml = length($parts[2]);
+		my $fp = $ml * $parts[3];
+		my $last = $revname{$msat};
+		my $dist = $revdist{$msat};
+		my $ol = length([split(/\./,$om)]->[2]);
+		# fits criteria
+		if ($dist <= $fp and $ml == $ol)
+		{
+			if (defined $root{$om})
+			{
+				$root{$msat} = $root{$om};	
+				push(@{$components{$root{$om}}}, $msat);
+				push (@interrupts, $msat);
+			}
+			else
+			{
+				$root{$msat} = $om;	
+				$root{$om} = $om;
+				push(@{$components{$om}}, $msat);
+				push(@{$components{$om}}, $om);
+				push (@interrupts, $msat);
+				push (@interrupts, $om);
+			}
+		}
+		$om = $msat;
+	}
+
+	# create separate array of non-interrupted msats,
+	# and interrupted ones
+	my %intseen = ();
+	my @noninterrupts = ();
+	foreach my $item (@interrupts) { $intseen{$item} = 1; }
+	foreach my $item (@msats)
+	{
+		unless ($intseen{$item})
+		{
+			push(@noninterrupts, $item);
+		}
+	}
+
+	# go through array of interrupted msats, and combine each
+	# set into one single msat
+	my @joined = ();
+	foreach my $msat (@interrupts)
+	{
+		if (defined $components{$msat})
+		{
+			my @reorder = sort {[split(/\./,$a)]->[1] <=> [split(/\./,$b)]->[1] } @{$components{$msat}};
+			my $start = "";
+			my $stop = "";
+			my @locations=();
+			my @motifs=();
+			my $genome;
+			my $units;
+			my $oldloc = 0;
+			my $oldfp = 0;
+			foreach my $comp (@reorder)
+			{
+				my @parts = split(/\./, $comp);
+				my $loc = $parts[1];
+				my $motif = $parts[2];
+				my $unit = $parts[3];
+				$genome = $parts[0];
+				push (@locations, $loc);
+				push (@motifs, $motif);
+				$units += $unit;
+				$units += int(($loc - ($oldloc + $oldfp))/length($motif)) if ($oldloc > 0);  
+				$oldloc = $loc;
+				$oldfp = length($motif) * $unit;
+			}
+			# create the new msat name
+			my $newname = $genome . "." . $locations[0] . "." . join("-", @motifs) . "." . $units;
+			push (@joined, $newname);
+		}
+	}
+	# return array of all msats in genome
+	my @finalmsats = ();
+	foreach my $msat (@noninterrupts) { push (@finalmsats, $msat); }
+	foreach my $msat (@joined) { push (@finalmsats, $msat); }
+	return \@finalmsats;
+}
+
+###############
+# help, help! #
+###############
+sub HELP_MESSAGE
+{
+	print $usage;
+	exit;
+}
+
+sub VERSION
+{
+	print "Msatfinder version: $version\n";
+	exit;
+}
+
+##################################################
+# a please wait thingy, thanks to:               #
+# http://www.perlmonks.org/index.pl?node_id=4943 #
+##################################################
+{
+package Whirley; 
+	sub new 
+	{
+		my $type = shift;
+		my $number = shift;
+		my $class = ref $type || $type;
+
+		my $WHIRLEY_COUNT = -1;
+		my @whirleyhash = (
+			  [qw/. .o .oO .oO(zzz) .oO(ZZZ) /],
+			  [qw(>--- ->-- -->- ---> ---* --- ---< --<- -<-- <--- *---)],
+			  [qw(- \ | / )],
+			  [qw(_o_ \o/  _O_ \O/)],
+			  [qw(/... ./.. ../. .../ ...# ... ...\ ..\. .\.. \... #...)],
+			  [ '(^_^ )','( ^_^)'],
+			  [ '(^_^ )','( ^_^)','( -_-)', '(-_- )' ],
+			  [map chr, qw/32 176 177 178 219 178 177 176/]
+			);
+		my @whirley = @{$whirleyhash[$number]};
+
+		my $self = sub 
+		{
+			$WHIRLEY_COUNT = 0 if ++$WHIRLEY_COUNT == @whirley;
+			return $whirley[$WHIRLEY_COUNT];
+		};
+		bless $self, $class;
+	}
+}
+__END__

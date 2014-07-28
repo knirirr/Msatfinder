@@ -1,0 +1,97 @@
+##################################################################
+# msatfinder.rc - configuration file for msatfinder script only. #
+# Full editing instructions are included below.							     # 
+# most of these defaults should be acceptable. 									 #
+##################################################################
+
+
+[COMMON]
+
+# set to 1 to switch on debugging info
+debug = 0
+
+# no. of bp either side of each msat to extract
+flank_size = 300
+
+# directory variables: it is best to leave these
+# values as they are. If you change them, the trailing
+# slash MUST be left on the name
+mine_dir = "MINE/"
+repeat_dir = "Repeats/"
+tab_dir = "Msat_tabs/"
+bigtab_dir = "Flank_tabs/"
+fasta_dir = "Fasta/"
+prime_dir = "Primers/"
+align_dir = "Aligner/"
+count_dir = "Counts/"
+
+
+[DEPENDENCIES]
+
+# Determine whether primers may be made from the repeat  you need eprimer3 
+# (emboss),  and primer3_core on your PATH for this to work				   
+# (see http://www-genome.wi.mit.edu/genome_software/other/primer3.html)	   
+# see eprimer3 documentation for additional flags.						   	
+# N.B. use "-task 0" if you have EMBOSS v.2.8.0, but "-primer" if you
+# have a newer version.
+run_eprimer = 1
+eprimer_args = "-primer"
+eprimer = "/usr/bin/eprimer3"
+primer3core = "/usr/bin/primer3_core"
+
+
+[FINDER]
+
+# the override switch will, if set to 1, 
+# turn off most of the output files.     
+# they can be deactivated individually   
+# with separate switches (see below)     
+override = 0
+
+# set the type of msat you want to search
+# for here, 1=mono, 2=di etc. (default is
+# for mono-hexa), with each type followed by
+# the threshold (no. of units or greater to
+# be detected). E.g "1,4" says "find all 
+# monos of length 4 or more". Separate each
+# pair of "motif,threshold" with a pipe "|".
+motif_threshold="1,12|2,8|3,5|4,5|5,5|6,5"
+
+# will write a file.tab file 
+# with repeats formatted as embl 
+# features 
+# ready for overlay on the genbank doc    
+# inside the artemis annotation tool      
+# contains "feature table", hence "tab" 
+# 0 no artemis files 
+# 1 files for msat only
+# 2 also produce separate files for msat + flanks
+artemis = 1
+
+# Write repeats and flanking areas to 
+# a MINE.db file? 1=yes, etc.         
+mine = 1
+
+# write fasta files for repeats? 
+fastafile = 1
+
+# "taxon" information: please see					  
+# http://genomics.nerc-oxford.ac.uk/msatminer/#taxon  
+# for details										  
+phages = "viruses"
+viroids = "viruses"
+plant_viruses = "viruses"
+megaplasmids = "plasmids"
+
+# remote link for viewing complete 
+# files, (Genbank, in this case)   
+remote_link="http://www.ncbi.nlm.nih.gov/entrez/viewer.fcgi?val="
+
+# this switch turns on the Repeats/$prefix.summary 
+# file, which can grow rather large if your        
+# thresholds are low. It's an essential file, though.                             
+sumswitch = 1
+
+# print out filenames as they are searched 
+screendump = 1
+

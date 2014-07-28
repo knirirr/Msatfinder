@@ -4,4 +4,5 @@ http://web.archive.org/web/20071026090642/http://www.genomics.ceh.ac.uk/msatfind
 
 Please see the original README.txt for usage instructions.
 
-https://zenodo.org/badge/doi/10.5281/zenodo.11066.png
+
+[<img src="https://zenodo.org/badge/doi/10.5281/zenodo.11066.png">](https://zenodo.org/deposit/9560/)

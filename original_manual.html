@@ -1,0 +1,752 @@
+<HTML>
+<HEAD>
+
+
+<script type="text/javascript" src="/static/js/analytics.js"></script>
+<script type="text/javascript">archive_analytics.values.server_name="wwwb-app19.us.archive.org";archive_analytics.values.server_ms=123;</script>
+<link type="text/css" rel="stylesheet" href="/static/css/banner-styles.css"/>
+
+
+<TITLE>Msatfinder manual</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link rel="stylesheet" href="quickmineoutput.css" type="text/css">
+</HEAD>
+
+<!--<BODY bgcolor="#FFFFCC">-->
+<body style='background-color:#FF6633;'>
+
+
+<!-- BEGIN WAYBACK TOOLBAR INSERT -->
+<script type="text/javascript" src="/static/js/disclaim-element.js" ></script>
+<script type="text/javascript" src="/static/js/graph-calc.js" ></script>
+<script type="text/javascript">//<![CDATA[
+var __wm = (function(imgWidth,imgHeight,yearImgWidth,monthImgWidth){
+var wbPrefix = "/web/";
+var wbCurrentUrl = "http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html";
+
+var firstYear = 1996;
+var displayDay = "13";
+var displayMonth = "Dec";
+var displayYear = "2007";
+var prettyMonths = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var $D=document,$=function(n){return document.getElementById(n)};
+var trackerVal,curYear = -1,curMonth = -1;
+var yearTracker,monthTracker;
+function showTrackers(val) {
+  if (val===trackerVal) return;
+  var $ipp=$("wm-ipp");
+  var $y=$("displayYearEl"),$m=$("displayMonthEl"),$d=$("displayDayEl");
+  if (val) {
+    $ipp.className="hi";
+  } else {
+    $ipp.className="";
+    $y.innerHTML=displayYear;$m.innerHTML=displayMonth;$d.innerHTML=displayDay;
+  }
+  yearTracker.style.display=val?"inline":"none";
+  monthTracker.style.display=val?"inline":"none";
+  trackerVal = val;
+}
+function trackMouseMove(event,element) {
+  var eventX = getEventX(event);
+  var elementX = getElementX(element);
+  var xOff = Math.min(Math.max(0, eventX - elementX),imgWidth);
+  var monthOff = xOff % yearImgWidth;
+
+  var year = Math.floor(xOff / yearImgWidth);
+  var monthOfYear = Math.min(11,Math.floor(monthOff / monthImgWidth));
+  // 1 extra border pixel at the left edge of the year:
+  var month = (year * 12) + monthOfYear;
+  var day = monthOff % 2==1?15:1;
+  var dateString = zeroPad(year + firstYear) + zeroPad(monthOfYear+1,2) +
+    zeroPad(day,2) + "000000";
+
+  $("displayYearEl").innerHTML=year+firstYear;
+  $("displayMonthEl").innerHTML=prettyMonths[monthOfYear];
+  // looks too jarring when it changes..
+  //$("displayDayEl").innerHTML=zeroPad(day,2);
+  var url = wbPrefix + dateString + '/' +  wbCurrentUrl;
+  $("wm-graph-anchor").href=url;
+
+  if(curYear != year) {
+    var yrOff = year * yearImgWidth;
+    yearTracker.style.left = yrOff + "px";
+    curYear = year;
+  }
+  if(curMonth != month) {
+    var mtOff = year + (month * monthImgWidth) + 1;
+    monthTracker.style.left = mtOff + "px";
+    curMonth = month;
+  }
+}
+function hideToolbar() {
+  $("wm-ipp").style.display="none";
+}
+function bootstrap() {
+  var $spk=$("wm-ipp-sparkline");
+  yearTracker=$D.createElement('div');
+  yearTracker.className='yt';
+  with(yearTracker.style){
+    display='none';width=yearImgWidth+"px";height=imgHeight+"px";
+  }
+  monthTracker=$D.createElement('div');
+  monthTracker.className='mt';
+  with(monthTracker.style){
+    display='none';width=monthImgWidth+"px";height=imgHeight+"px";
+  }
+  $spk.appendChild(yearTracker);
+  $spk.appendChild(monthTracker);
+
+  var $ipp=$("wm-ipp");
+  $ipp&&disclaimElement($ipp);
+}
+return{st:showTrackers,mv:trackMouseMove,h:hideToolbar,bt:bootstrap};
+})(500, 27, 25, 2);//]]>
+</script>
+<style type="text/css">
+body {
+  margin-top:0 !important;
+  padding-top:0 !important;
+  min-width:800px !important;
+}
+</style>
+<div id="wm-ipp" lang="en" style="display:none;">
+
+<div style="position:fixed;left:0;top:0;width:100%!important">
+<div id="wm-ipp-inside">
+   <table style="width:100%;"><tbody><tr>
+   <td id="wm-logo">
+       <a href="/web/" title="Wayback Machine home page"><img src="/static/images/toolbar/wayback-toolbar-logo.png" alt="Wayback Machine" width="110" height="39" border="0" /></a>
+   </td>
+   <td class="c">
+       <table style="margin:0 auto;"><tbody><tr>
+       <td class="u" colspan="2">
+       <form target="_top" method="get" action="/web/form-submit.jsp" name="wmtb" id="wmtb"><input type="text" name="url" id="wmtbURL" value="http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html" style="width:400px;" onfocus="this.focus();this.select();" /><input type="hidden" name="type" value="replay" /><input type="hidden" name="date" value="20071213144835" /><input type="submit" value="Go" /><span id="wm_tb_options" style="display:block;"></span></form>
+       </td>
+       <td class="n" rowspan="2">
+           <table><tbody>
+           <!-- NEXT/PREV MONTH NAV AND MONTH INDICATOR -->
+           <tr class="m">
+           	<td class="b" nowrap="nowrap">
+		
+		    <a href="/web/20070702001130/http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html" title="2 Jul 2007">JUL</a>
+		
+		</td>
+		<td class="c" id="displayMonthEl" title="You are here: 14:48:35 Dec 13, 2007">DEC</td>
+		<td class="f" nowrap="nowrap">
+		
+		    Jan
+		
+                </td>
+	    </tr>
+           <!-- NEXT/PREV CAPTURE NAV AND DAY OF MONTH INDICATOR -->
+           <tr class="d">
+               <td class="b" nowrap="nowrap">
+               
+                   <a href="/web/20070702001130/http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html" title="0:11:30 Jul 2, 2007"><img src="/static/images/toolbar/wm_tb_prv_on.png" alt="Previous capture" width="14" height="16" border="0" /></a>
+               
+               </td>
+               <td class="c" id="displayDayEl" style="width:34px;font-size:24px;" title="You are here: 14:48:35 Dec 13, 2007">13</td>
+	       <td class="f" nowrap="nowrap">
+               
+                   <img src="/static/images/toolbar/wm_tb_nxt_off.png" alt="Next capture" width="14" height="16" border="0"/>
+               
+	       </td>
+           </tr>
+           <!-- NEXT/PREV YEAR NAV AND YEAR INDICATOR -->
+           <tr class="y">
+	       <td class="b" nowrap="nowrap">
+               
+                   <a href="/web/20050404122716/http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html" title="4 Apr 2005"><strong>2005</strong></a>
+               
+               </td>
+               <td class="c" id="displayYearEl" title="You are here: 14:48:35 Dec 13, 2007">2007</td>
+	       <td class="f" nowrap="nowrap">
+               
+                   2008
+               
+	       </td>
+           </tr>
+           </tbody></table>
+       </td>
+       </tr>
+       <tr>
+       <td class="s">
+           <a class="t" href="/web/20071213144835*/http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html" title="See a list of every capture for this URL">3 captures</a>
+           <div class="r" title="Timespan for captures of this URL">4 Apr 05 - 13 Dec 07</div>
+       </td>
+       <td class="k">
+       <a href="" id="wm-graph-anchor">
+       <div id="wm-ipp-sparkline" title="Explore captures for this URL">
+	 <img id="sparklineImgId" alt="sparklines"
+		 onmouseover="__wm.st(1)" onmouseout="__wm.st(0)"
+		 onmousemove="__wm.mv(event,this)"
+		 width="500"
+		 height="27"
+		 border="0"
+		 src="/web/jsp/graph.jsp?graphdata=500_27_1996:-1:000000000000_1997:-1:000000000000_1998:-1:000000000000_1999:-1:000000000000_2000:-1:000000000000_2001:-1:000000000000_2002:-1:000000000000_2003:-1:000000000000_2004:-1:000000000000_2005:-1:000100000000_2006:-1:000000000000_2007:11:000000100001_2008:-1:000000000000_2009:-1:000000000000_2010:-1:000000000000_2011:-1:000000000000_2012:-1:000000000000_2013:-1:000000000000_2014:-1:000000000000_2015:-1:000000000000" />
+       </div>
+       </a>
+       </td>
+       </tr></tbody></table>
+   </td>
+   <td class="r">
+       <a href="#close" onclick="__wm.h();return false;" style="background-image:url(/static/images/toolbar/wm_tb_close.png);top:5px;" title="Close the toolbar">Close</a>
+       <a href="http://faq.web.archive.org/" style="background-image:url(/static/images/toolbar/wm_tb_help.png);bottom:5px;" title="Get some help using the Wayback Machine">Help</a>
+   </td>
+   </tr></tbody></table>
+</div>
+</div>
+</div>
+<script type="text/javascript">__wm.bt();</script>
+<!-- END WAYBACK TOOLBAR INSERT -->
+
+<table align="center" style='border:solid;border-width:2px;border-color:navy;background-color:#FFFFCC'>
+<tr><td>
+
+
+<table border="2" cellspacing="2" cellpadding="2" bgcolor="#FFFFFF">
+  <tr valign="middle">
+    <td width="90%"><span class="quickminetitle">Msatfinder manual</span> </td>
+    <td width="10%"><img src="msatminer.png"></td>
+  </tr>
+</table>
+
+
+<a name="index"></a>
+<!-- INDEX BEGIN -->
+<!--
+<a href="index.html">HOME</a> |
+<a href="msatfinder_manual.html">msatfinder manual</a> |
+<a href="/web/20071213144835/http://www.genomics.ceh.ac.uk/cgi-bin/msatfinder/msatfinder.cgi">msatfinder on-line</a> |
+<a href="online_help.html">msatfinder on-line help</a>
+-->
+<UL>
+	<li><a href="#intro">Introduction</a>
+	<li><a href="#install">Installation</a>
+		<ul>
+			<LI><A HREF="#base_install">The msatfinder script</A></LI>
+			<LI><A HREF="#deps_install">Dependencies</A></LI>
+		</ul>
+	<li><a href="#msatfinder">Using msatfinder</a></li>	
+		<ul>
+			<LI><A HREF="#finder_overview">Overview</A></LI>
+			<LI><A HREF="#finder_files">Input and output files</A></LI>
+			<LI><A HREF="#finder_key">Key to column headers</A></LI>
+			<LI><A HREF="#finder_config">Configuration</A></LI>
+			<LI><A HREF="#running_finder">Searching for microsatellites</A></LI>
+		</ul>
+	<li><a href="#online_help">Online interface</a></li>	
+		<ul>
+			<li><A HREF="#motif">Motif selection</A></li>
+			<li><A HREF="#threshold">Threshold selection</A></li>
+			<li><A HREF="#interrupts">Interrupted msats</A></li>
+			<li><A HREF="#random">Randomise sequence</A></li>
+			<li><A HREF="#markov">Thresholds by Markov chain analysis</A></li>
+			<li><A HREF="#poly">Thresholds by Poly</A></li>
+			<li><A HREF="#advanced">Advanced options</A></li>
+			<li><A HREF="#download">Download options</A></li>
+			<li><A HREF="#upload">Upload file</A></li>
+			<li><A HREF="#paste">Paste sequence</A></li>
+			<li><A HREF="#email">Email</A></li>
+			<li><A HREF="#output">Output</A></li>
+			<li><A HREF="#errors">What if it didn't work?</A></li>
+	</UL>
+		</ul>
+	<li><a href="#other_things">Other information</a>.
+		<ul>
+			<LI><A HREF="#bugs">Bug reporting/known bugs</A></LI>
+			<LI><A HREF="#convert">File conversion/handling</A></LI>
+			<LI><A HREF="#coding_style">Coding style</A></LI>
+		</ul>
+	<li><a href="index.html">Back to the main page</a>
+</UL>
+<!-- INDEX END -->
+
+<hr>
+<font color="green">
+<center>
+<h1><a name="intro">Introduction</h1>
+</center>
+</font>
+<p>Msatfinder examines sequence files (generally, small genomes) in GenBank, FASTA, EMBL and Swissprot (though ASCII can also be read) formats, and determines the number, type and position of microsatellite repeats. 
+<p>The software is designed to run on unix or Linux computers. It has been reported as working on Mac OSX 10.3.9 and 10.4.7, Gentoo Linux (x86 and ppc) and Debian Linux (x86).
+
+<center>
+<br><a href="#index">To the top.</a>
+</center>
+<hr>
+
+<font color="green">
+<center>
+<h1><a name="install">Installation</h1>
+</center>
+</font>
+
+<h3><a name="base_install">The msatfinder script</h3>
+<ol>
+<li><a href="/web/20071213144835/http://www.genomics.ceh.ac.uk/msatfinder/index.html#download">Download the tar or zip file</a>.
+<li>Unpack the downloaded file and cd to the new directory.
+<li>run <pre>./msatfinder [options] file(s)</pre>
+<li>Er...
+<li>That's it.
+</ol>
+
+
+<p>You may make a file containing a list of all input files that you'd like msatfinder to run on, or supply their names on the command line (e.g. with a glob). <p>If you use a list, then run msatfinder as:
+<pre>
+./msatfinder -l name_of_list_file
+</pre>
+
+<p>To run on the sample files provided you could provide their names or glob the file suffixes. For example:
+<pre>
+./msatfinder *.gbk
+</pre>
+to search the Genbank file provided.
+
+<p>Msatfinder can in fact be placed anywhere you like, for example in /usr/local/bin. As long as you have a configuration file in the same directory as your data then msatfinder will work. For example:
+<pre>
+cd /home/user/msat_data/bacteria
+/usr/local/bin/msatfinder *.gbk
+</pre>
+
+
+<p>Msatfinder should run without any need to configure it. If you'd like to change any of the parameters, please see the <A HREF="#finder_config">configuration</A> section, below. There are a variety of options that can be used each time msatfinder is run, and these are described in the <A HREF="#running_finder">searching for microsatellites</A> section.
+
+
+<h3><a name="deps_install">Dependencies</h3>
+<p>There are two types of dependency required by msatfinder: Perl modules, and external programs.
+
+<h4>Perl modules</h4>
+<p>All of the following must be installed for all the scripts to work properly:
+
+<ul>
+<li><a href="/web/20071213144835/http://www.bioperl.org/">BioPerl</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/CGI">CGI</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/Config::Simple">Config::Simple</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/File::Copy">File::Copy</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/Getopt::Std">Getopt::Std</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/Term::ReadLine">Term::ReadLine</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/Term::ANSIColor">Term::ANSIColor</a>.
+<li><a href="/web/20071213144835/http://cpan.uwinnipeg.ca/module/List::Util">List::Util</a>.
+</ul>
+
+<p>More information on installing Perl modules can be found at <a href="/web/20071213144835/http://www.perl.com/CPAN/">CPAN</a>. However, many of them will be installed as standard with Perl 5.8.3 (if so, <b>man</b> or <b>Perldoc</b> should provide information).
+
+<h4>External programs</h4>
+<p>The following external applications are used by msatfinder:
+
+<ul>
+<li><a href="/web/20071213144835/http://www.emboss.org/">EMBOSS</a>.
+<li><a href="/web/20071213144835/http://www-genome.wi.mit.edu/genome_software/other/primer3.html">primer3</a>. primer3_core should be installed on your PATH, as it is required for the eprimer3 part of EMBOSS to function (used by msatfinder to determine primers).
+</ul>
+
+<p>We use <a href="/web/20071213144835/http://www.gentoo.org/">Gentoo Linux</a> and <a href="/web/20071213144835/http://envgen.nox.ac.uk/biolinux.html">BioLinux</a> as the former has packages available for all these dependencies and the latter has them already installed.
+
+<h4>Dependency search priorities</h4>
+<p>Msatfinder looks for (external program) dependencies as follows:
+
+<ol>
+<li>It will check whether the location given in the config file is present and executable.
+<li>If not, it will use &ldquo;which&rdquo; to look for the executable on one's path.
+<li>If none can be found, the script will die with a list of which dependencies were missing.
+</ol>
+
+<p>This system will allow you to specify alternative versions of dependencies, which will have priority over the ones on the user's PATH, if required. This may be useful if the user has more than one version of EMBOSS and running a specific version is required.
+ 
+
+<center>
+<br><a href="#index">To the top.</a>
+</center>
+
+
+<hr>
+<font color="green">
+<center>
+<h1><a name="msatfinder">Using msatfinder</a></h1>
+</center>
+</font>
+
+<H2><A NAME="finder_overview">Overview</A></H2>
+<p>Msatfinder finds was designed to find perfect repeats (e.g. A(13) would be detected, but AAAAAATAAAAAA would not) in annotated (e.g. GenBank, EMBL, Swissprot) or unannotated (Fasta,raw) format files, but is also capable of finding interrupted microsatellites. It can be used to examine both protein and nucleic acid sequences. If given an annotated file it will extract information about each microsatellite and the sequence it is found in. In addition, for nucleic acid sequences it will determine whether it is possible to create PCR primers containing each repeat region found (EMBOSS/primer3 are required for this feature to work). The various features and output files may be controlled by editing the configuration file (msatfinder.rc) - notes are provided in the file on how to edit it, and more detail is given in this manual. 
+
+<H2><A NAME="finder_files">Input and output files</A></H2>
+<p>Input may be many separate sequence files, or multiple sequences in a file. To convert file formats <a href="ftp://ftp.bio.indiana.edu/molbio/readseq">readseq</a> may be useful.
+
+<h3>Input files</h3>
+<p>Input file types are automatically detected - if the file format cannot be determined a warning will be given. Allowed file types are:
+<ul>
+<li>GenBank.
+<li>Swissprot.
+<li>EMBL.
+<li>FASTA.
+<li>ASCII/raw.
+</ul>
+<p>Input sequences may be amino acid or nucleic acid. Please note that if you use &lsquo;ASCII&rsquo; format (i.e. raw sequence in a text file) then msatfinder will treat each new line as a new sequence, and blank lines are likely to cause it to fail.
+
+<p>You may name your input files as you please,  but naming of the sequences in input files is particularly important for the use of msatfinder. As it is possible to use a file containing many sequences as the input to msatfinder, the script uses BioPerl to extract a unique name for each sequence. This is then used to name output files, such as the microsatellite FASTA files. It's therefore possible to have (for example) an input file called &ldquo;MACO.gbk&rdquo;, but the FASTA files will be called such things as &ldquo;NC_004117.122038.CGA.6.fasta&rdquo;. In the case of FASTA files, the unique identifier extracted is the first entry following the &ldquo;&gt;&rdquo;. If you have no unique identifier in your files then msatfinder will attempt to generate one, but it is best if you can supply sequence files with each sequence already labeled. 
+
+
+<h3>Output files</h3>
+<p>When run, msatfinder creates some directories to store the output files &mdash; this is convenient as there are often large numbers of output files. If you install a version of msatfinder on your own computer then these directory names can be changed by editing the msatfinder.rc file. An html file (results.html) is created in the same directory in which msatfinder is run &mdash; open this in a browser to view all of msatfinder's output. Results.html contains links to the contents of the following seven subdirectories:
+
+<ul>
+<li><b>Repeats</b>: Contains various data files summarising genome and microsatellite information, e.g. taxonomy, number of microsatellites (see below). An index file summarising the results is created here.
+<li><b>GFF</b>: Contains GFF3 files describing the repeats.  Some of these are equivalent to tab files, and can be viewed in Artemis.  Click on the 'Artemis' link beside the file name.  At the moment, this capability is only present when a single sequence has been supplied.  NB. to view repeats, go to the bottom third of the Artemis window.  Then scroll down this area.  The repeats found by msatfinder are at the very end of the list (although their coordinates are scattered throughout the sequence).  Please note that certain older genbank files (older than approx 1 year) will not work with the most recent Artemis release.  To solve the problem, go to NCBI and download a newer version of your genbank file. 
+<li><b>Counts</b>: A summary of all microsatellites found in a genome by length and type or exact motif. Unlike the index and count files in Repeats/, the files here preserve the exact motifs rather than just their content. For example TAT and AAT would be recorded as different microsatellites, whereas in some files they would be counted as the same as they have the same base content - this saves space.  This directory also contains the thresholds suggested by Markov chain analysis or Poly, if these were chosen.  If the former was used, another file containing the number of non-standard letter codes (nonstandard.count) is also generated.
+<li><b>Msat_tabs</b>, <b>Flank_tabs</b>: Contain feature tables for use with artemis. To use them, cd to either of these directories and run <b>artemis <i>file.gbk</i> +<i>file.tab</i></b>. The msat_tab files show only the microsatellite itself, whilst the flank_tabs also include the flanking regions.
+<li><b>Fasta</b>: The sequence of the microsatellite plus flanking regions, in fasta format. These would be suitable for use in blast searches.
+<li><b>MINE</b>: These files contain the same information as shown in the &ldquo;repeats&rdquo; file in the Repeats directory (a summary of the details of each microsatellite), but one file per repeat is produced. These contain HTML formatting, and are designed to allow the creation of simple databases using our related <a href="/web/20071213144835/http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&amp;db=pubmed&amp;dopt=Abstract&amp;list_uids=11158339">MINE</a> software, and are turned off by default.
+<li><b>Primers</b>: Primer files are produced for each microsatellite, if possible. By default it produces information for possible PCR primers. This option will be disabled if you enter a swissprot format amino acid sequence, but should be turned off if you intend to enter your AA sequence in FASTA format.
+</ul>
+
+
+<p>The following files will be found in the directory called &ldquo;Repeats/&rdquo;:
+
+<ul>
+<li><b>sequence</b>: This contains the information on each sequence, including number of microsatellites found, GC content, &amp;c. A full listing of the column headers is shown <a href="#finder_key">here</a>.
+<li><b>repeats</b>: This file contains the details of every individual microsatellite, plus similar genomic information to the sequence file. An explanation of the column headers is shown in the main msatfinder manual, <a href="/web/20071213144835/http://www.genomics.ceh.ac.uk/msatfinder/msatfinder_manual.html#finder_key">here</a>. Both this file and the sequence file may easily be imported into <a href="/web/20071213144835/http://www.openoffice.org/">Open Office</a> (or similar), or imported into a database.
+<li><b>type.count</b>: This is a table showing the number of microsatellites found, categorised by motif type (mono, di, tri &amp;c.) and number of repeat units.
+<li><b>motif.count</b>: Similar to the type.count file, it shows the number of microsatellites found categorised by the bases/amino acids in the motif. These are ordered by the total base content only, thus AAT would be counted the same as TAT (exact summaries are available in the Counts/ directory).
+<li><b>index</b>: A handy summary of the results.
+<li><b>primers.csv</b>: A tabular summary of the information in all the primer files in the Primers/ directory.
+<li><b>errors</b>: file contains details of anything that looked unusual, e.g. very short sequences, features that did not match the sequence, &amp;c.
+</ul>
+
+<h2><a name="finder_key">Column headers for &ldquo;repeats&rdquo; and &ldquo;sequence&rdquo; files</a></h2>
+
+<p>The headers in these tables depend on the file format provided (e.g. Swissprot protein files don't have GC content). The headers are not found in the exact order shown below.
+
+<h4>These column headings are found in both the repeats and sequence files in the Repeats/ directory.</h4>
+
+<p><table border=1>
+
+<tr><td>sequence</td><td>The NC/Accession number/other identifier for this sequence.</td></tr>
+<tr><td>specific_taxon, generic_taxon</td><td>Fields derived from the names of he directories you store your data in. Actual taxonomic information is captured in the fields below. You probably won't need this, but please e-mail if you need more information about this.</td></tr>
+<tr><td>division,binomial,genus,species,strain/subspecies,common_name,organism,definition,taxid</td><td>Taxonomic features parsed from the genome file. These will not be available for some (e.g. FASTA) files.</td></tr>
+<tr><td>strand</td><td>Whether the genome is single (ss) or double (ds) stranded.</td></tr>
+<tr><td>alphabet</td><td>RNA, DNA or sometimes mRNA, depending on the genome annotation.</td></tr>
+<tr><td>circular</td><td>Whether the genome is circular or linear</td><td>
+<tr><td>date</td><td>Submission date from the annotated file. These are reformatted into YYYY-MM-DD format.</td></tr>
+<tr><td>specific_host,lab_host</td><td>This information on host range is sometimes provided in annotated files, but this field may often be blank.</td></tr>
+<tr><td>notes</td><td>Any notes from the annotated file, if present.</td></tr>
+<tr><td>genome_length</td><td>Length of the sequence.</td></tr>
+<tr><td>no_of_coding_regions</td><td>The number of CDS annotations found in the genome.</td></tr>
+<tr><td>total_nt_coding,percent_coding</td><td>The proportion of nucleotides that occur within CDS regions.</td></tr>
+</table>
+
+<h4>These additional column headings are found in the sequence file.</h4>
+<p><table border=1>
+<tr><td>GC_content</td><td>GC content of the entire genome.</td></tr>
+<tr><td>A, T, G, C </td><td>Base counts for the individual bases.</td></tr>
+<tr><td>A/AT, C/GC</td><td>The &lsquo;askew&rsquo; and &lsquo;cskew&rsquo; values; the value is expressed as a percentage of no. of A in total number of AT, &amp;c.</td></tr>
+<tr><td>total_rep_length</td><td>Total length of all microsatellites in the genome.</td></tr>
+<tr><td>pc_repeats</td><td>Microsatellites as a percentage of the genome.</td></tr>
+<tr><td>msats, No_of_msats</td><td>The first value is set to 1 if any microsatellites were found, the second value is set to the total number found.</td></tr>
+</table>
+
+<h4>These additional column headings are found in the repeats file.</h4>
+<p><table border=1>
+<tr><td>repeat</td><td>A unique name identifying this particular microsatellite.</td></tr>
+<tr><td>flank_length</td><td>The length of the flanking regions (default: 300 each side).</td></tr>
+<tr><td>repeat_plus_flank</td><td>Total length of the microsatellite and the flanks.</td></tr>
+<tr><td>start, stop</td><td>Start and stop positions of the microsatellite within the genome.</td></tr>
+<tr><td>motif_units</td><td>The motif and number of repeat units, e.g. AT(6).</td></tr>
+<tr><td>motif, motifrevcom</td><td>The motif (e.g. AT) and its reverse complement (e.g TA).</td></tr>
+<tr><td>repeat_units</td><td>Number of repeat units.</td></tr>
+<tr><td>footprint</td><td>Total length of the microsatellite; no. of units multiplied by unit length.</td></tr>
+<tr><td>dist_from_left, pc_from_left</td><td>Distance from the start of the sequence, as a number of bases and as a percentage, where the start of the microsatellite is found.</td></tr>
+<tr><td>dist_from_right, pc_from_right</td><td>Distance from the end of the sequence, as a number of bases and as a percentage, where the start of the microsatellite is found.</td></tr>
+<tr><td>motif_type</td><td>Mono, di, tri, tetra, penta or hexa.</td></tr>
+<tr><td>reverse</td><td>whether the feature the msat is found in is on the forward or reverse strand (1 = reverse, 0 = forward or not in a feature).</td></tr>
+<tr><td>primers</td><td>Was it possible to make a primer for this microsatellite (1 = yes, 0 = no).</td></tr>
+<tr><td>GC_content(genome), GC_content(flank), GC_content(repeat)</td><td>GC content of the entire genome, the flanks only and the microsatellite itself.</tr></td>
+<tr><td>coding_repeat</td><td>Set to 1 if msat is within a CDS region, 0 if it is not.</td></tr>
+<tr><td>gene,product,protein</td><td>If the msat is withn a CDS region, msatfinder will parse all available annotations for that region and place them in these categories.</td></tr>
+<tr><td>
+</table>
+
+<h2><a name="names">File names</a></h2>
+<p>Some of the output files produced by msatfinder have names such as &ldquo;NC_000871.33400.AT.6.fasta&rdquo;. These files are the fasta files of msat and flank sequence, primer files, mine files and feature tables.
+<p>The various sections are as follows.
+
+<p><table border=1>
+<tr><td>NC_000871</td><td>NC number of the genome in which the microsatellite was found. This is derived from the unique identifier for each sequence (typically the accession number), extracted by msatfinder.</td></tr>
+<tr><td>33400</td><td>Start position of the microsatellite.</td></tr>
+<tr><td>AT</td><td>Repeat motif. This could be a combination of motifs (e.g. AT-TA) if the msat is <a href="#ird">interrupts</a></td></tr>
+<tr><td>6</td><td>Number of repeat units.</td></tr>
+<tr><td>fasta</td><td>Format of the file. Other suffixes include &lsquo;primers.txt&rsquo; (primer files), &lsquo;db&rsquo; (MINE files) and &lsquo;count&rsquo; (summary of motif numbers). Feature tables have the filename NC_xxxxx.flank_tab or NC_xxxxx.msat_tab</td></tr>
+</table>
+
+
+
+<H2><A NAME="finder_config">Configuration</A></H2>
+<p>All of the parameters that can be customised by the user are found in the msatfinder.rc file. A brief description of how to set each of these is described in the file, but here we give some supplementary information. Variables in the COMMON and FINDER sections of the configuration file control the behaviour of msatfinder. Most of the default values will be acceptable in most cases.
+
+<ul>
+<li><font color = "green">debug</font> - if set to 1, will print extra debugging information. Set to 2 for even more.
+<li><font color = "green">flank_size</font> - the amount of sequence either side of the microsatellite that will be extracted and saved to the microsatellite FASTA file.
+<li><font color = "green">mine_dir,repeat_dir,tab_dir,bigtab_dir,fasta_dir,prime_dir,align_dir,cont_dir</font> - several variables that set the name of the subdirectories that will be created when the script is run. 
+<li><font color = "green">run_eprimer</font> - set to 1 if you want to determine whether a primer can be made for each repeat.
+<li><font color = "green">eprimer_args</font> - the eprimer man page has more information on what to put here, if you are dissatisfied with the default (pick PCR primers). Please note that the &ldquo;-task 0&rdquo; option works with EMBOSS 2.8.0. If you have 2.9.0 then you should use &ldquo;-primers&rdquo; instead.
+<li><font color = "green">eprimer</font> - full path to the eprimer3 binary.
+<li><font color = "green">primer3core</font> - the full path to the primer3_core binary.
+<li><font color = "green">override</font> - turns off the following variables. It's easier than editing lots of lines in the config file.
+	<ul>
+        <li>artemis.
+        <li>mine.
+        <li>fastafile.
+        <li>sumswitch.
+        <li>screendump.
+        <li>run_eprimer.
+	</ul>
+<li><font color = "green">motif_threshold</font> - this is particularly important, as it defines the thresholds <b>equal to or above</b> which microsatellites will be detected, and which types will be detected. The types may be set to any length, and the lowest the thresholds can be set is 1, which will find every single base, pair of bases, triplet &amp;c. It will take a long time to run if thresholds are set that low and the &ldquo;regex&rdquo; engine will not operate on such a small threshold. By default, mono-hexa will be searched for. Please refer to <a href="#setting_thresholds">setting thresholds and motif types</a> (below) for more information.
+<li><font color = "green">artemis</font> - turns on the Artemis feature tables.
+<li><font color = "green">mine</font> - turns on MINE summary files. These are equivalent to the "repeats" output file in the data they contain.
+<li><font color = "green">fastafile</font> - turns on whether or not a FASTA format file containing the sequence information for each microsatellite found will be generated.
+<li><font color = "green">taxon information</font> - two of the fields in the repeats and sequence files are &ldquo;specific_taxon&rdquo; and &ldquo;generic_taxon&rdquo;. See <a href="#taxon">here</a>.
+<li><font color = "green">remote_link</font> - used to put a hyperlink into MINE files for looking at the original genomes.
+<li><font color = "green">sumswitch</font> - determines whether or not the "repeats" output file will be created. This contains a large amount of information about each microsatellite and its genomic context, and can become rather large. However, it is very useful for importing into a database.
+<li><font color = "green">screendump</font> - prints out verbose information to the screen whilst running if set to 1.
+
+
+</ul>
+
+<H3><a name="setting_thresholds">Setting thresholds and motif types</a></H3>
+<p>It is possible to search for motif types of any length. However, configuring this may not be very intuitive. The default entries in msatfinder.rc dictate that msatfinder searches for motifs of length 1 to 6 (eg. A to ATTCCG).  This, along with the thresholds for each motif length, is encoded by the line :
+<p>
+<pre>
+motif_threshold = "1,12|2,8|3,5|4,5|5,5|6,5"
+</pre>
+<p>In this case, a motif of length 1 (eg. A) must be repeated 12 times before being reported. A motif of length 2 (eg. AC) must be repeated 8 times, &amp;c.  If the user wishes to search for longer motifs, for example motifs 20 elements in length, then they simply need to add a pipe symbol (&lsquo;|&rsquo;), followed by the motif length required and the corresponding
+threshold, eg. 2.  The line in msatfinder.rc would then read: 
+<p>
+<pre>
+motif_threshold = "1,12|2,8|3,5|4,5|5,5|6,5|20,2"
+</pre>
+<p>Likewise, if the user does not wish to search for a certain type of motif, eg. those of length 1, then they simply delete the '1,12' and the unneeded pipe symbol (pipes should not be at the beginning and end of the string).  Doing so would reduce the time needed for searching.
+
+
+<H2><A NAME="running_finder">Searching for microsatellites</A></H2>
+<p>Running msatfinder is described in the <a href="README.txt">README</a> and the <a href="#install">installation</a> section.
+
+<p><b>N.B.</b>You must have an msatfinder.rc config file present in the same directory as your data for msatfinder to run (see the <A HREF="#finder_config">configuration</a> section. If one is not present, the program will stop and give an error message suggesting that you place a copy of msatfinder.rc in the data directory. You may still use the help option if you don't have an msatfinder.rc file present (see below). 
+
+<p>Msatfinder has a lot of output files, and users may sometimes want to back these up or suppress them. Running msatfinder with the --help or -h option will print out a list of the options available. The full list of options is:
+
+<center><p><table border="1" cellpadding="1" cellspacing="1"><tr><td>
+<pre>
+-b backup your old data directories (adds date &amp; time suffix)
+-d delete most recent data directories, don't search for microsatellites
+-e &lt;1-3&gt; engine to use - see the manual (default = 1, the &ldquo;regex&rdquo; engine)
+-f set flank size, overriding config file (default 300)
+-h list these options
+-l &lt;list_file&gt; read a list of genomes from a text file
+-m &lt;N,N,...&gt; Types of msats to search for, overriding config file (default 1,2,3,4,5,6)
+-s silence most output to screen (overrides config file)
+-t &lt;N,N,N,N,N,N&gt; set thresholds, overriding config file (default 12,5,5,5,5,5)
+-x delete all data directories, don't search for microsatellites
+</pre>
+</td></tr></table></center>
+
+<H3>Microsatellite searching engines</A></H3>
+<p>There are three &ldquo;engines&rdquo; currently implemented for microsatellite searching. These all operate in slightly different ways, and if you don't find the default useful then the others may prove effective. They are as follows.
+
+<ul>
+<li><b>Regex</b> (option 1): This uses fast regular expressions to search once through the sequence. It is the fastest method, but cannot detect very small repeats (threshold &lt;3). This threshold is much lower than most people require, hence we have selected this engine as the default.
+<li><b>Multipass</b> (option 2): This steps through the sequence several times looking for microsatellites of one motif type on each pass, using regular expressions. This method may produce slightly different results, as it can find microsatellites that overlap.
+<li><b>Iterative</b> (option 3): This steps through the sequence one base at a time and attempts to construct a microsatellite at that position without using regular expressions. If it succeeds, it continues searching from the end of the last microsatellite. If you'd like to split the entire genome into repeat units this is the engine to use (it is slow, however).
+</ul>
+
+<p>The program is reasonably fast. For example, searching a large, microsatellite-rich bacterial genome such as Xylella fastidiosa (NC_002488, 2.68 Mb) with default thresholds takes under two minutes. The exact time will vary depending on your computing power.
+
+<H3><A NAME="ird">Interrupted microsatellites</A></H3>
+<p>&ldquo;Interrupted&rdquo; microsatellites include several possible features. One is that a microsatellite tract consists of two motifs of the same class (e.g. dinucleotides) adjacent to each other (example 1). Another is that a long microsatellite tract may have one or more point mutations in it, making it appear to be several shorter tracts (example 2). Sometimes this latter category may include a pseudo-frameshift (example 3), thus appearing to be two different motifs. 
+
+<h4>Examples</h4>
+<ol>
+<li>ACACACACACACACAATGTGTGTGTGTGTGTG - a microsatellite tract consisting of (AC)8 with a single point mutation on the last unit (making AA), followed by a (TG)8 microsatellite.
+<li>AAAAAAAAAAGAAAAAAAAAA - what appears to be 2x (A)10 is in fact an (A)21, with a point mutation.
+<li>ATATATATATATTATATATATATAT - the insertion of an extra &ldquo;T&rdquo; into this msat makes it appear to be an AT followed by a TA motif, when it should be considered as an interrupted AT motif.
+</ol>
+
+<p>Once microsatellites have been detected by whichever engine has been selected, the complete list of msats is scanned to determine the relative positions of each microsatellite within each genome. Microsatellites are joined together when they meet two criteria:
+
+<ul>
+<li>The distance from on microsatellite to the preceding one is equal to or less than the footprint of the current microsatellite.
+<li>The current microsatellite and the preceding one are of the same motif length (mono-, di- &amp;c.).
+</ul>
+
+<p>Each &ldquo;cluster&rdquo; of microsatellites thus found is combined into a single interrupted microsatellite, using the usual <a href="msatfinder_manual.html#names">nomenclature</a>. The motif type will be altered to contain all the motif types in the order they are found. So, example 1 (above) would become ac-tg.16, and example 2 would be a-a.21. In the latter case, the &ldquo;-&rdquo; is kept in to mark that this is an interrupted microsatellite.
+
+
+<center>
+<br><a href="#index">To the top.</a>
+</center>
+
+<hr>
+<font color="green">
+<center>
+<h2><a name="online_help">Help for using msatfinder on-line</a></h2>
+</center>
+</font>
+<p>The <a href="/web/20071213144835/http://www.genomics.ceh.ac.uk/cgi-bin/msatfinder/msatfinder.cgi">on-line version</a> of msatfinder is available for those who don't want to do a local install. It offers the same features as the downloadable version, but due to server limitations can only accept sequences up to 70Mb. Explanations of each of the on-line options are shown below.
+
+<h3><a name="motif">Motif selection</h3> 
+<p>Allows a selection of the motif types, mono (e.g. (A)12)to hexa (e.g. (ATAACA)20), for which one wishes to search. By default all the types are selected, but if you are not interested in mononucleotides, for example, then switching them off will save time and result in a smaller results file to download.
+
+<h3><a name="threshold">Threshold selection</h3> 
+<p>For each motif type, there is a minimum number of repeat units that msatfinder will look for. For example, the default setting is 12 units for mononucleotides and 5 for everything else, so that an (AT)5 (i.e. ATATATATAT) will be detected but an (AT)4 will not. You can set these as low as 3, but be prepared for a long wait and a lot of output. The default values are recommended for most files, but if you find nothing of use you may wish to lower the thresholds a little to see if any smaller microsatellites are present.
+<p>The interface states that there is a minimum of three repeat units, but there are some combinations of thresholds that may cause msatfinder to fail. One example is if you have a threshold for monos that is lower than the number of boxes ticked under &ldquo;choose the microsatellite motifs to search for&rdquo;. The reason for this is that the software may have trouble discriminating between some types of microsatellites, for example:
+<pre>
+ccccctccccctccccctccccct
+</pre>
+<p> ...could be (ccccct)4 but could also be 4x (c)5, as the computer sees it. To prevent this from happening, msatfinder will not run in cases where such confusion should occur. If you find that it fails when you are looking for very small microsatellites, try re-running but turning off the larger microsatellites, e.g. look for monos and dis only.
+<p>As well as setting the thresholds manually, they can also be calculated using Markov chain analysis or the Poly program.
+
+<h3>
+<a name="perfectengines">Engines for finding perfect repeats</h3>
+<p>Engines are available for finding perfect and imperfect repeats, as well as low-complexity regions.  Three engines, which were all created by the msatfinder team, fall into the first class:
+<ul><li><b>regex</b> - goes through once with a powerful regular expression, and post-filters</li><li><b>multipass</b> - finds overlapping msats</li><li><b>iterative</b> - iterates through once, tries to build the longest possible msat.</li></ul>
+
+<h3>
+<a name="advanced">Advanced options</h3> 
+<p>The default settings are probably best, but you may like to experiment with these. These options fall into four groups. 
+<p>The first option is the search engine to be used, if the user is searching for imperfect repeats or low-complexity regions. These engines are all based on standard repeat-finding software.  They are:   
+<ul><li><b>sputnik</b> - this uses the C program written by Chris Abajian (<a href="/web/20071213144835/http://espressosoftware.com/pages/sputnik.jsp">http://espressosoftware.com/pages/sputnik.jsp</a>).  It does not search for exact microsatellites, so that no motif is provided, and the microsatellite footprint is not equal to the motif length times the number of repeats.  </li>
+<li><b>dust</b> - used to filter nucleotide sequences for low-complexity areas.</li>
+<li><b>seg</b> - finds areas of low compositional complexity in amino acid sequences, for example regions of biased amino acid composition like histidine-rich domains.  Seg can be run with different options, including window (window size, default is 12), locut (low (trigger) complexity (default is 2.2)) and hicut (high (extension) complexity (default is 2.5)).  More information for dust and seg available at <a href=/web/20071213144835/http://www.molbiol.ox.ac.uk/analysis_tools/BLAST/BLAST_filtering.shtml#seg>http://www.molbiol.ox.ac.uk/analysis_tools/BLAST/BLAST_filtering.shtml#seg</a>.</li></ul>
+The second is a set of options allowing the user to carry out further analyses, including searching for interrupted microsatellites, randomising the sequence, or deriving threholds using Markov chain analysis or the Poly program.
+The third is the list of options for disabling various output files that msatfinder produces (all except MINE files are enabled by default, which should be suitable for most uses). Please note, though, that identifying primers is very time-consuming.  If you untick the 'primer files' box, this will speed up the analysis considerably.  The fourth is the flank size, which determines the length of sequence either side of the microsatellite that will be saved as a FASTA format file for blast searching, &amp;c. We have found the default of 300 to be suitable for most purposes. 
+<h3><a name="download">Download options</h3> 
+<p>After running your analysis, you will be able to view the results on-line and/or download them as a compressed archive in tar.gz (unix) or zip (windows) formats. Select your preferred format before running the analysis. 
+
+<h3><a name="interrupts">Find interrupted msats</h3> 
+<p>If this box is checked (it's unchecked by default) then msatfinder will process the microsatellites found to determine if any could be joined into larger microsatellites, according to <a href="#ird">certain rules</a>. Typically, about 10% of microsatellites found could be so joined.
+
+<h3><a name="random">Randomise sequence</h3> 
+<p>If this box is checked (it's unchecked by default) then each input sequence will be randomised.  The algorithm is for each individual letter in the sequence in turn to be moved to a random position.  All further analyses are carried out on this randomised sequence.  The randomised sequence is stored in Fasta/sequenceID.random.fasta.  Where multiple randomisations are carried out, they are done serially, not in parallel.
+
+<h3><a name="markov">Thresholds by Markov chain analysis</h3> 
+<p>The repeat thresholds mark the minimum number of motif repeats required before a microsatellite is reported and are used to eliminate repeats which might be observed by chance.  Any microsatellite found to have fewer repeats than this threshold is discarded.
+<p>The threshold values can be provided manually or can be calculated from the sequence using Markov chain analysis.  By default Msatfinder employs a fifth-order Markov chain which uses the observed frequencies of codon pairs present in the sequence and provides an accurate measure of expected thresholds, particularly for long (>1Mb) sequences.  For shorter sequences, where we expect to observe fewer instances of each permutation of paired codons, a lower-order Markov chain should be employed to retain accuracy.
+<!--
+
+
+Rather than selecting the thresholds manually (ie. specifying the minimum number of repeats that must be reached before a microsatellite is stored), the user can also automate the process.  One way to do this, when examining a nucleotide sequence, is to use Markov chain analysis.  This involves examining the sequence and recording the number of sequence instances.  For example, when searching for microsatellites based on the AT repeat, all instances of AT would be counted, then all instances of A preceded by AT, then all instances of T preceded by ATA, etc.  Using these frequencies, along with the total length of the sequence, the program calculates the probability of any given repeat length (eg. probability of AT, ATAT, ATATAT).  Once the probability drops below 0.00001, the program returns that number of motifs plus one, which serves as a threshold.  This is equivalent to the longest microsatellite which would be expected to occur by chance.  Any microsatellite with a smaller repeat number can be ignored, anything with a larger repeat number is of interest. -->
+<p>In a Markov chain analysis, a file containing all non-standard letters in the sequence is generated and stored as Counts/sequenceID.nonstandard.count. <b>NB. Markov chain analysis can only be carried out on nucleotide sequences.</b><p>There are three options available to the user:
+<ol>
+<li><b>Choose markov chain length</b> - (default 5).  For sequences of more than 1 Mb (megabyte), use the default.  If your sequence is shorter than this then reduce the chain length to retain accuracy.  This may require experimentation.<!-- For example, if a markov chain length of 4 is chosen, the program works on the basis of four and five-letter groups.  Thus, how many times is A preceded by ATAT.  Chain lengths of 5 best reflect the underlying structure of the sequence. If, however, the sequence is short, certain motifs may not be present at all (ie. no ATGCATs present), which would bias the results.-->  Work is in progress to better aid the user in choosing the chain length best suited to their sequence.</li>
+<li><b>Calculate Markov thresholds</b> - thresholds are calculated using Markov chain analysis, and stored in Counts/sequenceID.markov.count, but they are not implemented.  That is, they are not used to bar certain microsatellites from being recorded. </li>
+<li><b>Implement Markov thresholds</b> - repeat thresholds are calculated using Markov chain analysis and are implemented in Msatfinder.</li>
+</ol>
+
+<h3><a name="poly">Thresholds by Poly</h3> 
+<p>The third option for selecting microsatellite thresholds, along with manual choice and Markov chains, it to use the well-known program Poly, written by Jeff Bizzaro.  The original publication is at <a href=/web/20071213144835/http://www.biomedcentral.com/1471-2105/4/22>http://www.biomedcentral.com/1471-2105/4/22</a>. To speed up the calculations the algorithm has been transported from Python to C.  
+<p>The user has two options:
+<ol>
+<li><b>Calculate Poly thresholds</b> - Poly thresholds are calculated and stored in Fasta/sequenceID.poly.count, but not implemented</li>
+<li><b>Implement Poly thresholds</b> - Poly thresholds are calculated and implemented (ie. used to screen microsatellites)</li></ol>
+
+<h3><a name="upload">Upload file</h3>
+<p>Choose a file from your local system to run msatfinder on. 
+Files under 7Mb will be analysed and the results returned immediately to the user.  Larger files require that the user submit their email address.  Once the analysis is complete, a link to the results will be emailed to the user.  Results are stored for 36 hours on the server before being deleted.  If you have very large sequences, or many of them, we recommend a local installation and are happy to offer assistance, or run your sequence for you. See <A href="#finder_files">file formats</a> for allowable file types.
+
+<h3><a name="paste">Paste sequence</h3> 
+<p>See <A href="#finder_files">file formats</a> for input file formats. 
+If you paste anything in here, it will be used instead of any uploaded file data, so make sure that this box is cleared if you'd like to upload a file.
+
+<p>Once you've submitted your sequence, click "search" and wait for a few moments (an animated picture will be shown whilst msatfinder runs). A brief summary will be displayed and a link to the downloadable file and the viewable results will be shown. These links will become inactive after a couple of hours, so please download them immediately if you'd like to keep the results.
+
+<h3><a name="email">Email</h3> 
+<p>If your submitted file is larger than 7Mb, you must provide your email address.  A link to the results of the analysis will then be sent to you.  No record of the email addresses are kept past the point that the email is sent out.
+
+<h3><a name="output">Output</a></h3>
+</center>
+</font>
+
+<p>The output will be viewable on-line for 36 hours, and can be downloaded as a tar or zip file within that time, so we recommend that you bookmark the link to your output.  The various files that are included in the download directory are described below. The most important is "results.html" that includes links to all the other output files so that you may view them in a browser. Your input sequence and a configuration file will also be saved for future reference, in case of any problem with the results.
+
+<p>The output files produced by the online version of msatfinder are identical to those produced by the local version. A detailed description of these is available in <a href="msatfinder_manual.html#finder_files">the output file section</a>. Please note that MINE files will not be produced by default - they must be enabled under &ldquo;advanced options&rdquo;.
+
+<h3><a name="errors">What if it didn't work?</a></h3>
+</center>
+</font>
+<p>Occasionally, Msatfinder will fail to run on some input files. There are various reasons that this might happen, which are described below and also mentioned in the <a href="#bugs">bugs</a> section.
+<ul>
+<li>The unique identifier extracted from the sequence may contain some characters that the operating system does not like. This does not happen very often, but if you suspect that this is the case then please send your sequence to <a href="mailto:pswi@ceh.ac.uk">Paul Swift</a>. If you are using a FASTA format file you could also change the header to something inocuous like &ldquo;> sequence1&rdquo;.
+<li>If your sequence contains lots of unknown bases then Msatfinder may have encountered a bug in Perl itself. The Perl developers know about this bug, but it seems that it cannot be fixed in the near future. Msatfinder will still work if the iterative engine is used, although this will be much slower. 
+<li>Another possibility is that your threshold settings are very low. As described <a href="#threshold">here</a>, low thresholds can cause ambiguities in the microsatellites found, and the program will not run if there is the potential for this. You can work around this problem by only looking for one type of microsatellite at a time, e.g. setting Msatfinder to find all monos of 3 or more units. 
+</ul>
+<p>If you encounter a problem that does not seem to fit into these categories, please  <a href="mailto:pswi@ceh.ac.uk">contact us</a> and we will endeavour to fix the problem or analyse your data for you as soon as possible.
+
+<center>
+<br><a href="#index">To the top.</a>
+</center>
+
+<hr>
+
+<font color="green">
+<center>
+<h1><a name="other_things">Other information</a></h1>
+</center>
+</font>
+
+<h2><a name="bugs">Bug reporting/known bugs</a></h2>
+<p>Though we are using this software successfully, there's a small chance of bugs turning up somewhere. Should you find any, please contact us (details below) and we will squash them. If you're using msatfinder, there are a few things that you ought to bear in mind.
+<ul>
+<li>The number of interrupted microsatellites is dependent upon the thresholds chosen, as the program joins together microsatellites that are above the thresholds specified. An interrupted microsatellite whose individual parts are below the thresholds will not currently be detected.
+<li>The program is reasonably fast, unless the thresholds are set very low or the genome is very large. The slowest part of the script is the section that parses genomic features, but this will not be needed if FASTA files are used. 
+<li>With low thresholds (e.g. 1), the counts may be skewed somewhat. For example, (AAT)7 could also be detected as seven (A)2 repeats. In general, it is not necessary to set thresholds this low, though. N.B. the default engine will not allow msats of less than three units to be detected, and will fail to run if ambiguities like this could be encountered, so this problem will only be seen if using one of the other engines.
+<li>There is a problem in Perl's regex engine that can cause stack overflow in some cases. This generally means that if your data contains many unknown bases, msatfinder may die with a segmentation fault. Msatfinder is not the only application to be affected by this, and the Perl developers plan to change their code to overcome this problem. Meanwhile, if your data are affected, you can try a newer version of Perl or running msatfinder with the -e3 option (this is slow, but bypasses the problem).
+</ul>
+
+<p>We welcome suggestions for new features or other improvements. 
+
+<h2><a name="convert">File conversion/handling methods</a></h2>
+<p>For converting files one could use <a href="/web/20071213144835/http://www.hgmp.mrc.ac.uk/Software/EMBOSS/Apps/seqret.html">Seqret</a> (from <a href="/web/20071213144835/http://www.emboss.org/">EMBOSS</a>), or use <a href="ftp://ftp.bio.indiana.edu/molbio/readseq/">readseq</a>.
+
+<h2><a name="coding_style">Coding style</a></h2>
+<p>The braces in this code are written thus:
+<center><p><table border="1" cellpadding="1" cellspacing="1"><tr><td>
+<pre>
+foreach (@item)
+{
+    print $_;
+}
+</pre>
+</td></tr></table></center>
+<p>This is simply because it's easier to read this way. However, if you disagree, you may wish to try <a href="/web/20071213144835/http://perltidy.sourceforge.net/">this</a>.
+
+<center>
+<br><a href="#index">To the top.</a>
+</center>
+<hr>
+
+<center>
+<br><a href="index.html">To the main msatfinder page.</a>
+</center>
+
+
+<br>
+<center>
+<br>
+<p><a href="/web/20071213144835/http://www.vim.org/"><img SRC="vim.gif" ALT="HTML edited by Vim" BORDER=0 ></a>
+<br>
+</center>
+</td></tr>
+</body>
+</html>
+
+
+
+
+
+
+<!--
+     FILE ARCHIVED ON 14:48:35 Dec 13, 2007 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 15:30:34 Sep 18, 2015.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+-->
